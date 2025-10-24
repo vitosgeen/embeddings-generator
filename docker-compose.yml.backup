@@ -16,7 +16,7 @@ services:
       - GRPC_PORT=${GRPC_PORT}
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
-      - ./app:/app/app:ro        # (опціонально) щоб оновлення коду було видно без rebuild
+      - ./app:/app/app:ro        # (optional) so that code updates are visible without rebuild
       - ./proto:/app/proto:ro
     restart: unless-stopped
     networks:
