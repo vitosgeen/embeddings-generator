@@ -76,17 +76,17 @@ The deployment job can use GitHub Environments for additional security:
 - Scans code for security issues with Bandit
 - Runs in parallel with testing
 
-### 3. **Docker Build & Test** (`docker-build` job)
+### 3. **Deployment Validation** (`validate-deployment` job)
 - Only runs on `main` branch after tests pass
-- Builds Docker image locally for testing
-- Validates the application runs correctly in containerized environment
-- No external dependencies or registry requirements
+- Validates application structure and import correctness
+- Checks deployment readiness without heavy Docker builds
+- Fast and lightweight validation process
 
 ### 4. **Deployment** (`deploy` job)
-- Only runs on `main` branch after Docker build
-- Currently contains placeholder deployment logic  
-- Ready to be configured for your deployment target
-- Supports environment protection when enabled
+- Only runs on `main` branch after validation
+- Provides guidance for Python-based deployment strategies
+- Supports virtual environment, cloud, and serverless deployment options
+- Optimized for ML applications without Docker overhead
 
 ## Local Development Workflow
 
