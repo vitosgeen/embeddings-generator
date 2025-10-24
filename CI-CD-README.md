@@ -17,12 +17,20 @@ git config user.name "Your Name"
 git config user.email "your.email@example.com"
 ```
 
-### 2. Required GitHub Secrets
+### 2. GitHub Secrets Configuration
 
-Set up the following secrets in your GitHub repository settings:
-
+#### Required for Docker Push (Optional)
 - `DOCKERHUB_USERNAME`: Your Docker Hub username
 - `DOCKERHUB_TOKEN`: Docker Hub access token (not password!)
+
+**How to get Docker Hub token:**
+1. Go to [Docker Hub Account Settings](https://hub.docker.com/settings/security)
+2. Click "New Access Token"
+3. Give it a name (e.g., "github-actions")
+4. Copy the generated token
+5. Add both `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to your GitHub repository secrets
+
+> **Note**: Without Docker Hub credentials, the pipeline will still work but won't push images to Docker Hub. Images will be built and tested locally.
 
 ### 3. Codecov Setup (Optional but Recommended)
 

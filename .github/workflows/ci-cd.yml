@@ -124,22 +124,52 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
-      if: github.event_name != 'pull_request'
+        logout: false
+      if: github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
       
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: ${{ github.event_name != 'pull_request' }}
+        push: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
+    - name: Docker Build Summary
+      if: always()
+      run: |
+        echo "🐳 Docker Build Summary"
+        echo "======================="
+        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+          echo "✅ Docker Hub credentials configured"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "📦 Image pushed to Docker Hub: ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator"
+          else
+            echo "🔄 Pull request - image built but not pushed"
+          fi
+        else
+          echo "⚠️  Docker Hub credentials not configured"
+          echo "💡 Add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets to enable pushing"
+          echo "   Image was built successfully but not pushed"
+        fi
+        
     - name: Test Docker image
+      if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
       run: |
         docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest python -c "import app; print('Docker image works!')"
+        
+    - name: Test local Docker build
+      if: secrets.DOCKERHUB_USERNAME == '' || secrets.DOCKERHUB_TOKEN == ''
+      run: |
+        echo "🔧 Testing locally built image..."
+        # Build a test image locally
+        docker build -t test-embeddings-generator .
+        # Test the image
+        docker run --rm test-embeddings-generator python -c "import app; print('✅ Docker image works!')"
+        echo "✅ Local Docker image test passed"
 
   deploy:
     runs-on: ubuntu-latest
