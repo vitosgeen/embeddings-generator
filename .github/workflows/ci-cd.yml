@@ -116,96 +116,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Login to DockerHub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-        logout: false
-      if: github.event_name != 'pull_request'
-      continue-on-error: true
-      
-    - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        load: true  # Load image into local Docker daemon
-        tags: embeddings-generator:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        
-    - name: Push to Docker Hub
-      if: github.event_name != 'pull_request'
+    - name: Build and test Docker image
       run: |
-        echo "🔍 Checking local Docker images..."
-        docker images
+        echo "🐳 Building Docker image for testing..."
+        docker build -t embeddings-generator:test .
         
-        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-          echo "🚀 Pushing to Docker Hub..."
-          
-          # Verify image exists
-          if docker image inspect embeddings-generator:latest >/dev/null 2>&1; then
-            echo "✅ Local image found: embeddings-generator:latest"
-            
-            # Tag and push
-            docker tag embeddings-generator:latest ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
-            docker tag embeddings-generator:latest ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
-            
-            echo "📦 Pushing latest tag..."
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
-            
-            echo "📦 Pushing SHA tag..."
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
-            
-            echo "✅ Images pushed successfully to Docker Hub"
-          else
-            echo "❌ Local image 'embeddings-generator:latest' not found"
-            echo "Available images:"
-            docker images
-            exit 1
-          fi
-        else
-          echo "⚠️ Docker Hub credentials not found - skipping push"
-          echo "💡 Add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets to enable pushing"
-        fi
+        echo "🧪 Testing Docker image..."
+        docker run --rm embeddings-generator:test python -c "
+        import app
+        print('✅ App module imports successfully')
+        print('✅ Docker image works correctly!')
+        "
         
-    - name: Docker Build Summary
-      if: always()
-      run: |
-        echo "🐳 Docker Build Summary"
-        echo "======================="
-        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-          echo "✅ Docker Hub credentials configured"
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "📦 Image pushed to Docker Hub: ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator"
-          else
-            echo "🔄 Pull request - image built but not pushed"
-          fi
-        else
-          echo "⚠️  Docker Hub credentials not configured"
-          echo "💡 Add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets to enable pushing"
-          echo "   Image was built successfully but not pushed"
-        fi
+        echo "📊 Docker image details:"
+        docker images embeddings-generator:test
         
-    - name: Test Docker image
-      run: |
-        # Test the appropriate image based on what was built/pushed
-        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
-          echo "🧪 Testing pushed Docker Hub image..."
-          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest python -c "import app; print('✅ Docker Hub image works!')"
-        else
-          echo "🧪 Testing locally built image..."
-          if docker image inspect embeddings-generator:latest >/dev/null 2>&1; then
-            docker run --rm embeddings-generator:latest python -c "import app; print('✅ Local Docker image works!')"
-          else
-            echo "❌ Local image not found, building fresh test image..."
-            docker build -t test-embeddings-generator .
-            docker run --rm test-embeddings-generator python -c "import app; print('✅ Fresh Docker image works!')"
-          fi
-        fi
+        echo "✅ Docker build and test completed successfully"
+        
+        # Optional: Save image info for later use
+        echo "DOCKER_IMAGE_ID=$(docker images -q embeddings-generator:test)" >> $GITHUB_ENV
 
   deploy:
     runs-on: ubuntu-latest

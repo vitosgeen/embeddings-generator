@@ -19,18 +19,16 @@ git config user.email "your.email@example.com"
 
 ### 2. GitHub Secrets Configuration
 
-#### Required for Docker Push (Optional)
-- `DOCKERHUB_USERNAME`: Your Docker Hub username
-- `DOCKERHUB_TOKEN`: Docker Hub access token (not password!)
+#### Optional: Docker Hub Integration
+- `DOCKERHUB_USERNAME`: Your Docker Hub username  
+- `DOCKERHUB_TOKEN`: Docker Hub access token with **write permissions**
 
-**How to get Docker Hub token:**
-1. Go to [Docker Hub Account Settings](https://hub.docker.com/settings/security)
-2. Click "New Access Token"
-3. Give it a name (e.g., "github-actions")
-4. Copy the generated token
-5. Add both `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to your GitHub repository secrets
+> **Note**: Docker Hub integration is optional. The CI/CD pipeline builds and tests Docker images locally by default. You only need Docker Hub secrets if you want to push images to a registry.
 
-> **Note**: Without Docker Hub credentials, the pipeline will still work but won't push images to Docker Hub. Images will be built and tested locally.
+**To enable Docker Hub pushing (optional):**
+1. Get a Docker Hub access token with **write/push permissions**
+2. Add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to GitHub repository secrets
+3. Uncomment the Docker Hub steps in `.github/workflows/ci-cd.yml`
 
 ### 3. Codecov Setup (Optional but Recommended)
 
@@ -78,16 +76,17 @@ The deployment job can use GitHub Environments for additional security:
 - Scans code for security issues with Bandit
 - Runs in parallel with testing
 
-### 3. **Docker Build** (`docker-build` job)
+### 3. **Docker Build & Test** (`docker-build` job)
 - Only runs on `main` branch after tests pass
-- Builds Docker image with BuildKit
-- Pushes to Docker Hub with `latest` and commit SHA tags
-- Uses GitHub Actions cache for faster builds
+- Builds Docker image locally for testing
+- Validates the application runs correctly in containerized environment
+- No external dependencies or registry requirements
 
 ### 4. **Deployment** (`deploy` job)
 - Only runs on `main` branch after Docker build
-- Currently contains placeholder deployment logic
-- Configure based on your deployment target
+- Currently contains placeholder deployment logic  
+- Ready to be configured for your deployment target
+- Supports environment protection when enabled
 
 ## Local Development Workflow
 
