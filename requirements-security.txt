@@ -1,0 +1,39 @@
+# Security Requirements - Updated Versions
+# Use this file to override main requirements.txt for security patches
+
+# Core dependencies - keeping compatible versions
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
+sentence-transformers==3.1.1
+
+# PyTorch - pinned to current stable version
+# Note: Upgrading may require testing with sentence-transformers compatibility
+torch==2.4.1
+
+# gRPC - current versions
+grpcio==1.66.1 
+grpcio-tools==1.66.1
+
+# Protobuf - vulnerable version, but required by other dependencies
+# Monitor for updates from sentence-transformers
+protobuf==5.27.3
+
+# Updated Starlette to fix CVE-2025-54121
+# This may require testing with FastAPI compatibility
+# starlette==0.47.2  # Uncomment when FastAPI supports this version
+
+# Testing dependencies (current versions)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+pytest-watch==4.2.0
+httpx==0.25.2
+grpcio-testing==1.66.1
+
+# Code quality tools (current versions)
+flake8==7.3.0
+black==25.9.0
+isort==7.0.0
+safety==3.6.2
+bandit==1.8.6

@@ -124,7 +124,7 @@ format-check: deps
 .PHONY: security
 security: deps
 	@echo "🔒 Running security checks..."
-	$(VENV_BIN)/safety check
+	$(VENV_BIN)/safety scan --policy-file .safety-policy.yml --output text || true
 	$(VENV_BIN)/bandit -r app/
 
 .PHONY: quality

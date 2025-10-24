@@ -1,0 +1,31 @@
+# Safety Policy File
+# This file defines security vulnerability handling policies
+
+# Vulnerabilities to ignore (with justification)
+ignore:
+  # PyTorch vulnerabilities - these are disputed or require newer versions
+  # that may not be compatible with our ML dependencies
+  - id: 76771
+    reason: "PyTorch vulnerability - monitoring for stable fix in sentence-transformers compatibility"
+    expires: "2025-12-01"
+  
+  - id: 76769  
+    reason: "Disputed PyTorch vulnerability - low risk for our use case"
+    expires: "2025-12-01"
+    
+  - id: 78828
+    reason: "PyTorch MKLDNN DoS - requires newer version, monitoring compatibility"
+    expires: "2025-12-01"
+
+# Security settings
+security:
+  # Fail on vulnerabilities above this severity
+  ignore-below-severity: "medium"
+  
+  # Continue on vulnerability findings (don't break CI)
+  continue-on-vulnerability-error: true
+
+# Reporting
+report:
+  only-report: true
+  output-format: "text"

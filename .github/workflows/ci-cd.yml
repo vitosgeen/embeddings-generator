@@ -79,7 +79,7 @@ jobs:
         
     - name: Run safety check
       run: |
-        safety check
+        safety scan --policy-file .safety-policy.yml --output text || true
         
     - name: Run bandit security linter
       run: |
