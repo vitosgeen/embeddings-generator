@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -7,8 +7,8 @@ from ...usecases.generate_embedding import GenerateEmbeddingUC
 
 
 class EmbedReq(BaseModel):
-    text: str | None = None
-    texts: List[str] | None = None
+    text: Optional[str] = None
+    texts: Optional[List[str]] = None
     task_type: str = "passage"
     normalize: bool = True
 

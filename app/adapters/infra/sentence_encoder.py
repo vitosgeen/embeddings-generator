@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 from sentence_transformers import SentenceTransformer
@@ -10,7 +10,7 @@ _PREFIXES = {
 
 
 class SentenceEncoder:
-    def __init__(self, model_id: str, device: str | None = None, batch_size: int = 32):
+    def __init__(self, model_id: str, device: Optional[str] = None, batch_size: int = 32):
         self._model_id = model_id
         self._device = device or (
             "cuda"
