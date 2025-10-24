@@ -125,18 +125,32 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
         logout: false
-      if: github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN
+      if: github.event_name != 'pull_request'
+      continue-on-error: true
       
-    - name: Build and push Docker image
+    - name: Build Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN }}
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
+        push: false  # We'll handle push separately
+        tags: embeddings-generator:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        
+    - name: Push to Docker Hub
+      if: github.event_name != 'pull_request'
+      run: |
+        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+          echo "🚀 Pushing to Docker Hub..."
+          docker tag embeddings-generator:latest ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
+          docker tag embeddings-generator:latest ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:${{ github.sha }}
+          echo "✅ Images pushed to Docker Hub"
+        else
+          echo "⚠️ Docker Hub credentials not found - skipping push"
+          echo "💡 Add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets to enable pushing"
+        fi
         
     - name: Docker Build Summary
       if: always()
@@ -157,9 +171,15 @@ jobs:
         fi
         
     - name: Test Docker image
-      if: secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN && github.event_name != 'pull_request'
+      if: github.event_name != 'pull_request'
       run: |
-        docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest python -c "import app; print('Docker image works!')"
+        # Only test if we have Docker Hub credentials and image was pushed
+        if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+          echo "🧪 Testing pushed Docker image..."
+          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/embeddings-generator:latest python -c "import app; print('✅ Docker image works!')"
+        else
+          echo "⚠️ Skipping Docker Hub image test - credentials not configured"
+        fi
         
     - name: Test local Docker build
       run: |
