@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  embeddings-service:
+    build: .
+    container_name: embeddings-service
+    env_file: .env
+    ports:
+      - "${REST_PORT}:8000"      # REST API
+      - "${GRPC_PORT}:50051"     # gRPC API
+    environment:
+      - MODEL_ID=${MODEL_ID}
+      - DEVICE=${DEVICE}
+      - BATCH_SIZE=${BATCH_SIZE}
+      - REST_PORT=${REST_PORT}
+      - GRPC_PORT=${GRPC_PORT}
+      - LOG_LEVEL=${LOG_LEVEL}
+    volumes:
+      - ./app:/app/app:ro        # (опціонально) щоб оновлення коду було видно без rebuild
+      - ./proto:/app/proto:ro
+    restart: unless-stopped
+    networks:
+      - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: "4.0"
+
+networks:
+  ai_network:
+    name: ai_network

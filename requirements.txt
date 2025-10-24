@@ -1,0 +1,23 @@
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
+sentence-transformers==3.1.1
+torch==2.4.1
+grpcio==1.66.1
+grpcio-tools==1.66.1
+protobuf==5.27.3
+
+# Testing dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+pytest-watch==4.2.0
+httpx==0.25.2
+grpcio-testing==1.66.1
+
+# Code quality and security
+flake8==7.3.0
+black==25.9.0
+isort==7.0.0
+safety==3.6.2
+bandit==1.8.6

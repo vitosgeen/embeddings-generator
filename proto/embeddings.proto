@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package embeddings;
+
+service EmbeddingsService {
+  rpc Embed (EmbedRequest) returns (EmbedResponse);
+  rpc EmbedBatch (EmbedBatchRequest) returns (EmbedBatchResponse);
+  rpc Health (HealthRequest) returns (HealthResponse);
+}
+
+message EmbedRequest {
+  string text = 1;
+  string task_type = 2; // "passage" | "query"
+  bool normalize = 3;   // optional
+}
+
+message EmbedResponse {
+  string model_id = 1;
+  int32 dim = 2;
+  repeated float embedding = 3;
+}
+
+message EmbedBatchRequest {
+  repeated string texts = 1;
+  string task_type = 2;
+  bool normalize = 3;   // optional
+}
+
+message EmbedBatchResponse {
+  string model_id = 1;
+  int32 dim = 2;
+  repeated EmbeddingItem items = 3;
+}
+message EmbeddingItem {
+  int32 index = 1;
+  repeated float embedding = 2;
+}
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;  // "ok"
+  string model_id = 2;
+  string device = 3;
+  int32 dim = 4;
+}

@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203, W503
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    proto/embeddings_pb2.py,
+    proto/embeddings_pb2_grpc.py
+per-file-ignores =
+    # Tests can import fixtures and not use them directly
+    tests/*.py:F401
+    # __init__.py files can have unused imports for re-exports
+    __init__.py:F401
