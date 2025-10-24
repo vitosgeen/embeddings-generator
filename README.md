@@ -39,6 +39,55 @@ make proto
 
 # 3. Run the service
 make run
+```
+
+## ⚙️ Configuration
+
+The service uses environment variables for configuration. Copy the example configuration file and customize it:
+
+```bash
+# Copy the example configuration
+cp .env_example .env
+
+# Edit the configuration file
+nano .env  # or use your preferred editor
+```
+
+### 🔧 Key Configuration Options
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `MODEL_ID` | Sentence Transformer model from Hugging Face | `BAAI/bge-base-en-v1.5` | `sentence-transformers/all-MiniLM-L6-v2` |
+| `DEVICE` | Processing device (auto/cpu/cuda/mps) | `auto` | `cuda` |
+| `BATCH_SIZE` | Batch size for processing | `32` | `64` |
+| `REST_PORT` | REST API port | `8000` | `8080` |
+| `GRPC_PORT` | gRPC API port | `50051` | `9090` |
+| `LOG_LEVEL` | Logging level | `INFO` | `DEBUG` |
+| `API_KEYS` | Authentication keys (account:key pairs) | Required | `admin:sk-admin-key123` |
+
+### 🔐 Authentication Setup
+
+The service requires API keys for the `/embed` endpoint. Configure them in your `.env` file:
+
+```bash
+# Format: account_name:api_key,account_name2:api_key2
+API_KEYS=admin:sk-admin-your-secret-key,user1:sk-user1-another-key,monitoring:sk-monitor-key
+```
+
+**Security Best Practices:**
+- Use strong, unique API keys (32+ characters)
+- Rotate keys regularly in production
+- Store secrets securely (use secret management systems)
+- Use HTTPS/TLS for all communications
+
+### 📋 Model Options
+
+Popular model choices for different use cases:
+
+- **General Purpose**: `BAAI/bge-base-en-v1.5` (768 dim, high quality)
+- **Fast & Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim)
+- **High Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
+- **Multilingual**: `intfloat/multilingual-e5-base` (768 dim)
 
 
 ## 🌐 REST API Usage
@@ -59,25 +108,52 @@ It allows you to send text or multiple texts and receive their vector embeddings
 
 ### ⚙️ Request formats
 
+> **🔐 Authentication Required**: All `/embed` requests require a valid API key in the Authorization header.
+
 #### 🔹 Single text
 
 ```bash
 curl -X POST http://localhost:8000/embed \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
   -d '{
-    "text": "Artificial intelligence is amazing"
+    "text": "Artificial intelligence is amazing",
+    "task_type": "passage",
+    "normalize": true
   }'
+```
 
 #### 🔹 Multiple texts (batch mode)
+
 ```bash
 curl -X POST http://localhost:8000/embed \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
   -d '{
     "texts": [
       "Artificial intelligence is amazing",
       "Large language models are powerful"
-    ]
+    ],
+    "task_type": "passage",
+    "normalize": true
   }'
+```
+
+#### 🔹 Health check (no authentication required)
+
+```bash
+curl -X GET http://localhost:8000/health
+```
+
+#### 📊 Response format
+
+```json
+{
+  "model_id": "BAAI/bge-base-en-v1.5",
+  "dim": 768,
+  "embedding": [0.1234, -0.5678, ...],
+  "requested_by": "admin"
+}
 ```
 
 ---
