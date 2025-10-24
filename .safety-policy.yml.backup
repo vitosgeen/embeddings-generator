@@ -17,15 +17,5 @@ ignore:
     reason: "PyTorch MKLDNN DoS - requires newer version, monitoring compatibility"
     expires: "2025-12-01"
 
-# Security settings
-security:
-  # Fail on vulnerabilities above this severity
-  ignore-below-severity: "medium"
-  
-  # Continue on vulnerability findings (don't break CI)
-  continue-on-vulnerability-error: true
-
-# Reporting
-report:
-  only-report: true
-  output-format: "screen"
+# Note: This is for Safety 2.x compatibility
+# For newer versions, use different configuration format
