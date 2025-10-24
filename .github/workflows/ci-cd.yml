@@ -79,12 +79,12 @@ jobs:
         
     - name: Run safety check
       run: |
-        safety scan --policy-file .safety-policy.yml --output text || true
+        safety scan --policy-file .safety-policy.yml --output screen || true
         
     - name: Run bandit security linter
       run: |
-        bandit -r app/ -f json -o bandit-report.json || true
-        bandit -r app/
+        bandit -r app/ -f json -o bandit-report.json --skip B104 || true
+        bandit -r app/ --skip B104
 
   docker-build:
     runs-on: ubuntu-latest

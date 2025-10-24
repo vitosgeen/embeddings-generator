@@ -28,4 +28,4 @@ security:
 # Reporting
 report:
   only-report: true
-  output-format: "text"
+  output-format: "screen"

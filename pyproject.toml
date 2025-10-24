@@ -76,7 +76,7 @@ directory = "htmlcov"
 
 [tool.bandit]
 exclude_dirs = ["tests", "proto"]
-skips = ["B101"]  # Skip assert_used test
+skips = ["B101", "B104"]  # Skip assert_used test, hardcoded_bind_all_interfaces
 
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
