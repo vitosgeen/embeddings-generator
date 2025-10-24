@@ -1,23 +1,3 @@
-FROM python:3.11-slim AS builder
-WORKDIR /app
-
-COPY requirements.txt ./
-COPY proto ./proto
-
-# Install system deps + grpcio-tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential protobuf-compiler python3-dev \
- && pip install --no-cache-dir grpcio-tools \
- && rm -rf /var/lib/apt/lists/*
-
-# Run proto generation
-RUN mkdir -p app/adapters/grpc/generated && \
-    python -m grpc_tools.protoc -I proto \
-      --python_out=app/adapters/grpc/generated \
-      --grpc_python_out=app/adapters/grpc/generated \
-      proto/embeddings.proto
-
-# Production stage
 FROM python:3.11-slim AS production
 
 # Add labels for better image identification
@@ -32,12 +12,10 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
  && rm requirements.txt
 
-# Copy application code
+# Copy application code and proto files
 COPY app ./app
+COPY proto ./proto/
 COPY main.py ./
-
-# Copy generated proto files from builder stage
-COPY --from=builder /app/app/adapters/grpc/generated ./proto/
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
