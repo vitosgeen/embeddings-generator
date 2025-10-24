@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
@@ -15,6 +17,13 @@ class EmbedReq(BaseModel):
 
 def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
     app = FastAPI(title="Embeddings Service (REST)")
+    
+    # Set up templates
+    templates = Jinja2Templates(directory="templates")
+
+    @app.get("/", response_class=HTMLResponse)
+    async def index(request: Request):
+        return templates.TemplateResponse("index.html", {"request": request})
 
     @app.get("/health")
     def health():
