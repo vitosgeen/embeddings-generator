@@ -11,7 +11,13 @@ Implements a clean modular structure and can run locally or via Docker Compose.
 ## ⚙️ Description
 
 This service accepts text input and returns vector embeddings.  
-It’s designed for internal company usage — other systems can call it via REST or gRPC.
+It's designed for internal company usage — other systems can call it via REST or gRPC.
+
+## 🎯 Demo
+
+![Embeddings Service Interface](./assets/demo-interface.png)
+
+*The service provides a clean web interface showing API endpoints, current model information, and interactive documentation through Swagger UI.*
 
 ---
 
