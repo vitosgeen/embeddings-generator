@@ -31,9 +31,9 @@ pytest-watch==4.2.0
 httpx==0.25.2
 grpcio-testing==1.66.1
 
-# Code quality tools (current versions)
-flake8==7.3.0
-black==25.9.0
-isort==7.0.0
-safety==3.6.2
-bandit==1.8.6
+# Code quality tools (Python 3.8+ compatible)
+flake8==6.1.0
+black==23.11.0
+isort==5.12.0
+safety==2.3.5
+bandit==1.7.5
