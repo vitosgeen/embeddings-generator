@@ -24,9 +24,20 @@ Set up the following secrets in your GitHub repository settings:
 - `DOCKERHUB_USERNAME`: Your Docker Hub username
 - `DOCKERHUB_TOKEN`: Docker Hub access token (not password!)
 
-### 3. Optional Codecov Setup
+### 3. Codecov Setup (Optional but Recommended)
 
-For coverage reporting, sign up at [codecov.io](https://codecov.io) and link your GitHub repository.
+For coverage reporting and tracking:
+
+1. **Sign up**: Go to [codecov.io](https://codecov.io) and sign in with your GitHub account
+2. **Add Repository**: Add your repository to Codecov
+3. **Get Upload Token**: Copy the upload token from your Codecov repository settings
+4. **Add GitHub Secret**: Add `CODECOV_TOKEN` secret in your GitHub repository settings
+5. **Badge**: Add a coverage badge to your README.md:
+   ```markdown
+   [![codecov](https://codecov.io/gh/yourusername/embeddings-generator/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/embeddings-generator)
+   ```
+
+> **Note**: Without the CODECOV_TOKEN, uploads may fail due to rate limiting. The CI will continue to work, but coverage reports won't be uploaded.
 
 ## Pipeline Stages
 

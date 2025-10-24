@@ -56,10 +56,32 @@ jobs:
         make test-coverage
         
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
-        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
+        verbose: true
+        slug: ${{ github.repository }}
+      continue-on-error: true
+      
+    - name: Coverage Upload Summary
+      if: always()
+      run: |
+        if [ -f "coverage.xml" ]; then
+          echo "📊 Coverage report generated successfully"
+          echo "📝 File size: $(du -h coverage.xml | cut -f1)"
+          echo ""
+          if [ -n "${{ secrets.CODECOV_TOKEN }}" ]; then
+            echo "✅ Codecov token is configured"
+          else
+            echo "⚠️  Codecov token not configured - uploads may be rate limited"
+            echo "💡 Add CODECOV_TOKEN secret to enable reliable coverage uploads"
+            echo "   Visit: https://app.codecov.io/gh/${{ github.repository }}"
+          fi
+        else
+          echo "❌ No coverage report found"
+        fi
 
   security-scan:
     runs-on: ubuntu-latest

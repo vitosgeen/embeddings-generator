@@ -1,5 +1,8 @@
 # 🧠 Embeddings Service
 
+[![CI/CD Pipeline](https://github.com/vitosgeen/embeddings-generator/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vitosgeen/embeddings-generator/actions/workflows/ci-cd.yml)
+[![codecov](https://codecov.io/gh/vitosgeen/embeddings-generator/branch/main/graph/badge.svg)](https://codecov.io/gh/vitosgeen/embeddings-generator)
+
 A lightweight **REST + gRPC microservice** for generating **text embeddings** using [Sentence Transformers](https://www.sbert.net/).  
 Implements a clean modular structure and can run locally or via Docker Compose.
 
