@@ -47,6 +47,24 @@ For coverage reporting and tracking:
 
 > **Note**: Without the CODECOV_TOKEN, uploads may fail due to rate limiting. The CI will continue to work, but coverage reports won't be uploaded.
 
+### 4. GitHub Environments (Optional for Deployment Protection)
+
+The deployment job can use GitHub Environments for additional security:
+
+**To set up a production environment:**
+1. **Go to Repository Settings** → **Environments**
+2. **Click "New environment"** and name it `production`
+3. **Configure protection rules** (optional):
+   - **Required reviewers**: Require manual approval before deployment
+   - **Wait timer**: Add a delay before deployment
+   - **Deployment branches**: Restrict to specific branches (e.g., only `main`)
+
+**Environment-specific secrets:**
+- Add secrets that are specific to the production environment
+- Example: `PRODUCTION_API_KEY`, `PROD_DATABASE_URL`, etc.
+
+> **Note**: The current workflow has environment protection disabled. To enable it, uncomment the `environment: production` line in `.github/workflows/ci-cd.yml`
+
 ## Pipeline Stages
 
 ### 1. **Testing** (`test` job)
