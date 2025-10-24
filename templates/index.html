@@ -216,10 +216,17 @@
             
             <h2>💡 Usage Examples</h2>
             
-            <h3>Single Text Embedding</h3>
+            <div class="card" style="margin-bottom: 1.5rem; background: #fff3cd; border-left: 4px solid #856404;">
+                <h3 style="color: #856404;">🔐 Authentication Required</h3>
+                <p>The <code>/embed</code> endpoint requires authentication using Bearer tokens (API keys). Contact your administrator for API keys.</p>
+                <p><strong>Available accounts:</strong> admin, user1, app1, monitoring</p>
+            </div>
+            
+            <h3>Single Text Embedding (Authenticated)</h3>
             <div class="code-block">
 curl -X POST "{{ base_url }}/embed" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
   -d '{
     "text": "Artificial intelligence is transforming the world",
     "task_type": "passage",
@@ -227,10 +234,11 @@ curl -X POST "{{ base_url }}/embed" \
   }'
             </div>
             
-            <h3>Batch Text Embeddings</h3>
+            <h3>Batch Text Embeddings (Authenticated)</h3>
             <div class="code-block">
 curl -X POST "{{ base_url }}/embed" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-user1-def456uvw012" \
   -d '{
     "texts": [
       "Machine learning enables intelligent systems",
@@ -241,9 +249,19 @@ curl -X POST "{{ base_url }}/embed" \
   }'
             </div>
             
-            <h3>Health Check</h3>
+            <h3>Health Check (Public)</h3>
             <div class="code-block">
 curl -X GET "{{ base_url }}/health"
+            </div>
+            
+            <h3>Example Response with Authentication</h3>
+            <div class="code-block">
+{
+  "model_id": "BAAI/bge-base-en-v1.5",
+  "dim": 768,
+  "embedding": [0.1234, -0.5678, ...],
+  "requested_by": "admin"
+}
             </div>
         </div>
         

@@ -1,5 +1,10 @@
 import asyncio
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from app.bootstrap import build_usecase
 from app.adapters.rest.fastapi_app import build_fastapi
 from app.adapters.grpc.server import serve_grpc
