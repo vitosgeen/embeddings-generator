@@ -143,13 +143,13 @@ class TestAuthentication:
         )
         assert response.status_code == 403
         
-        # Empty Bearer token
+        # Empty Bearer token - FastAPI HTTPBearer returns 403 for malformed headers
         response = client.post(
             "/embed",
             headers={"Authorization": "Bearer "},
             json={"text": "test"}
         )
-        assert response.status_code == 401
+        assert response.status_code == 403
 
 
 class TestAuthenticationConfiguration:
