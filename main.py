@@ -10,6 +10,10 @@ from app.adapters.rest.fastapi_app import build_fastapi
 from app.adapters.grpc.server import serve_grpc
 from app.config import REST_PORT, GRPC_PORT
 
+# Server configuration constants
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_LOG_LEVEL = "info"
+
 async def run():
     uc = build_usecase()
     app = build_fastapi(uc)
@@ -18,7 +22,7 @@ async def run():
     grpc_server = await serve_grpc(uc, port=GRPC_PORT)
 
     # FastAPI (uvicorn) also asynchronous
-    config = uvicorn.Config(app, host="0.0.0.0", port=REST_PORT, log_level="info")
+    config = uvicorn.Config(app, host=DEFAULT_HOST, port=REST_PORT, log_level=DEFAULT_LOG_LEVEL)
     server = uvicorn.Server(config)
 
     # run in parallel

@@ -6,6 +6,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app import config
 
+# Authentication constants
+AUTH_SCHEME = "Bearer"
+ERROR_INVALID_API_KEY = "Invalid API key"
+HEADER_WWW_AUTHENTICATE = "WWW-Authenticate"
+
 security = HTTPBearer()
 
 
@@ -26,8 +31,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if api_key not in config.VALID_API_KEYS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail=ERROR_INVALID_API_KEY,
+            headers={HEADER_WWW_AUTHENTICATE: AUTH_SCHEME},
         )
     
     return config.API_KEYS[api_key]
@@ -53,8 +58,8 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
     if api_key not in config.VALID_API_KEYS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail=ERROR_INVALID_API_KEY,
+            headers={HEADER_WWW_AUTHENTICATE: AUTH_SCHEME},
         )
     
     return config.API_KEYS[api_key]

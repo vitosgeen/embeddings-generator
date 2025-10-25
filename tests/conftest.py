@@ -7,12 +7,23 @@ import pytest
 
 from app.ports.encoder_port import EncoderPort
 
+# Mock encoder default values
+DEFAULT_MOCK_MODEL_ID = "mock-model"
+DEFAULT_MOCK_DEVICE = "cpu"
+DEFAULT_MOCK_DIM = 384
+LARGE_MOCK_DIM = 768
+LARGE_MOCK_MODEL_ID = "large-mock-model"
+
+# Mock embedding generation constants
+HASH_MODULO = 100
+EMBEDDING_SCALE = 100.0
+
 
 class MockEncoder:
     """Mock implementation of EncoderPort for testing."""
 
     def __init__(
-        self, model_id: str = "mock-model", device: str = "cpu", dim: int = 384
+        self, model_id: str = DEFAULT_MOCK_MODEL_ID, device: str = DEFAULT_MOCK_DEVICE, dim: int = DEFAULT_MOCK_DIM
     ):
         self._model_id = model_id
         self._device = device
@@ -25,8 +36,8 @@ class MockEncoder:
         embeddings = []
         for i, text in enumerate(texts):
             # Create a simple deterministic embedding based on text hash and index
-            hash_value = hash(text) % 100
-            embedding = [float(hash_value + j + i) / 100.0 for j in range(self._dim)]
+            hash_value = hash(text) % HASH_MODULO
+            embedding = [float(hash_value + j + i) / EMBEDDING_SCALE for j in range(self._dim)]
             embeddings.append(embedding)
         return embeddings
 
@@ -49,7 +60,7 @@ def mock_encoder():
 @pytest.fixture
 def large_mock_encoder():
     """Fixture providing a mock encoder with larger dimension."""
-    return MockEncoder(model_id="large-mock-model", dim=768)
+    return MockEncoder(model_id=LARGE_MOCK_MODEL_ID, dim=LARGE_MOCK_DIM)
 
 
 @pytest.fixture
