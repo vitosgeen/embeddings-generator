@@ -3,34 +3,54 @@ from typing import List, Optional
 import torch
 from sentence_transformers import SentenceTransformer
 
+# Task types
+TASK_TYPE_PASSAGE = "passage"
+TASK_TYPE_QUERY = "query"
+
+# Device types
+DEVICE_CUDA = "cuda"
+DEVICE_MPS = "mps"
+DEVICE_CPU = "cpu"
+
+# Default values
+DEFAULT_BATCH_SIZE = 32
+DEFAULT_TASK_TYPE = TASK_TYPE_PASSAGE
+
+# Embedding prefixes for different task types
+PASSAGE_PREFIX = "Represent this passage for retrieval: "
+QUERY_PREFIX = "Represent this query for retrieving relevant passages: "
+
+# Probe text for dimension detection
+DIM_PROBE_TEXT = "dim_probe"
+
 _PREFIXES = {
-    "passage": "Represent this passage for retrieval: ",
-    "query": "Represent this query for retrieving relevant passages: ",
+    TASK_TYPE_PASSAGE: PASSAGE_PREFIX,
+    TASK_TYPE_QUERY: QUERY_PREFIX,
 }
 
 
 class SentenceEncoder:
-    def __init__(self, model_id: str, device: Optional[str] = None, batch_size: int = 32):
+    def __init__(self, model_id: str, device: Optional[str] = None, batch_size: int = DEFAULT_BATCH_SIZE):
         self._model_id = model_id
         self._device = device or (
-            "cuda"
+            DEVICE_CUDA
             if torch.cuda.is_available()
             else (
-                "mps"
-                if getattr(torch.backends, "mps", None)
+                DEVICE_MPS
+                if getattr(torch.backends, DEVICE_MPS, None)
                 and torch.backends.mps.is_available()
-                else "cpu"
+                else DEVICE_CPU
             )
         )
         self._model = SentenceTransformer(self._model_id, device=self._device)
         self._batch_size = batch_size
 
     def _prefix(self, texts: List[str], task_type: str) -> List[str]:
-        prefix = _PREFIXES.get(task_type, _PREFIXES["passage"])
+        prefix = _PREFIXES.get(task_type, _PREFIXES[DEFAULT_TASK_TYPE])
         return [prefix + t for t in texts]
 
     def encode(
-        self, texts: List[str], task_type: str = "passage", normalize: bool = True
+        self, texts: List[str], task_type: str = DEFAULT_TASK_TYPE, normalize: bool = True
     ) -> List[List[float]]:
         prepared = self._prefix(texts, task_type)
         vecs = self._model.encode(
@@ -43,7 +63,7 @@ class SentenceEncoder:
         return [v.tolist() for v in vecs]
 
     def dim(self) -> int:
-        return len(self.encode(["dim_probe"], "passage", True)[0])
+        return len(self.encode([DIM_PROBE_TEXT], DEFAULT_TASK_TYPE, True)[0])
 
     def device(self) -> str:
         return self._device
