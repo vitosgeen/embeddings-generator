@@ -17,7 +17,11 @@ from argon2.exceptions import VerifyMismatchError, InvalidHashError
 
 API_KEY_PREFIX = "sk"
 API_KEY_RANDOM_LENGTH = 24
-API_KEY_PATTERN = re.compile(r"^sk-[a-z]{3,15}-[A-Za-z0-9]{24}$")
+# Accept multiple formats for backwards compatibility:
+# - Standard: sk-{role}-{random24}  (e.g., sk-admin-m1YHp13elEvafGYLT27H0gmD)
+# - Legacy: sk-{role}-{random}      (e.g., sk-admin-test123456789012)
+# - Underscore: sk_{any}_{random}   (e.g., sk_test_batch_41c51db7c42f89a7321f74cc)
+API_KEY_PATTERN = re.compile(r"^sk[-_][a-zA-Z0-9_-]{3,50}$")
 
 # Argon2 parameters (balance security vs performance)
 ARGON2_TIME_COST = 2  # iterations

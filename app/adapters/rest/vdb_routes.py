@@ -679,18 +679,18 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions
-        auth.require_project_access(project_id, min_role="project-owner")
+        auth.require_project_access(project_id)
         
         # Check quota before batch operation
         quota_storage = get_quota_storage()
         if quota_storage:
-            quota_check = quota_storage.check_quota(
+            allowed, reason = quota_storage.check_quota(
                 user_id=auth.user_id,
                 project_id=project_id,
                 operation_type="add_vector",
                 vector_count=len(req.vectors)
             )
-            if not quota_check["allowed"]:
+            if not allowed:
                 # Record quota exceeded
                 usage_storage = get_usage_storage()
                 if usage_storage:
@@ -701,9 +701,9 @@ def build_vdb_router(
                         collection_name=collection,
                         vector_count=len(req.vectors),
                         status="quota_exceeded",
-                        metadata={"reason": quota_check["reason"]}
+                        metadata={"reason": reason}
                     )
-                raise HTTPException(status_code=429, detail=quota_check["reason"])
+                raise HTTPException(status_code=429, detail=reason)
         
         # Process each vector
         results = []
@@ -714,7 +714,7 @@ def build_vdb_router(
             try:
                 add_vector_uc.execute(
                     project_id=project_id,
-                    collection_name=collection,
+                    collection=collection,
                     vector_id=vector.id,
                     embedding=vector.embedding,
                     metadata=vector.metadata,
@@ -795,7 +795,7 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions
-        auth.require_project_access(project_id, min_role="project-owner")
+        auth.require_project_access(project_id)
         
         # Process each vector (upsert = delete + add)
         results = []
@@ -811,9 +811,8 @@ def build_vdb_router(
                 try:
                     delete_vector_uc.execute(
                         project_id=project_id,
-                        collection_name=collection,
+                        collection=collection,
                         vector_id=vector.id,
-                        include_debug=False,
                     )
                     was_update = True
                     updates += 1
@@ -823,7 +822,7 @@ def build_vdb_router(
                 # Add the vector
                 add_vector_uc.execute(
                     project_id=project_id,
-                    collection_name=collection,
+                    collection=collection,
                     vector_id=vector.id,
                     embedding=vector.embedding,
                     metadata=vector.metadata,
@@ -906,7 +905,7 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions
-        auth.require_project_access(project_id, min_role="project-owner")
+        auth.require_project_access(project_id)
         
         # Process each deletion
         results = []
@@ -917,9 +916,8 @@ def build_vdb_router(
             try:
                 delete_vector_uc.execute(
                     project_id=project_id,
-                    collection_name=collection,
+                    collection=collection,
                     vector_id=vector_id,
-                    include_debug=False,
                 )
                 results.append(BatchOperationResult(
                     success=True,

@@ -1147,9 +1147,27 @@ class UsageTrackingStorage:
             for record in records:
                 op_type = record.operation_type
                 if op_type not in by_operation:
-                    by_operation[op_type] = {"count": 0, "vectors": 0}
+                    by_operation[op_type] = {
+                        "count": 0,
+                        "vectors": 0,
+                        "total_duration_ms": 0,
+                        "operations": []
+                    }
                 by_operation[op_type]["count"] += 1
                 by_operation[op_type]["vectors"] += record.vector_count
+                if record.duration_ms:
+                    by_operation[op_type]["total_duration_ms"] += record.duration_ms
+                    by_operation[op_type]["operations"].append(record.duration_ms)
+            
+            # Calculate averages
+            for op_type, stats in by_operation.items():
+                if stats["operations"]:
+                    stats["avg_duration_ms"] = stats["total_duration_ms"] / len(stats["operations"])
+                else:
+                    stats["avg_duration_ms"] = 0
+                # Remove temporary data
+                del stats["operations"]
+                del stats["total_duration_ms"]
             
             return {
                 "total_operations": total_operations,

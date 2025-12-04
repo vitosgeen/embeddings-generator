@@ -7,7 +7,7 @@ from typing import List
 
 # Configuration
 BASE_URL = "http://localhost:8000"
-API_KEY = "sk-admin-Y48sXC42i9iwt"  # Using admin key from .env
+API_KEY = "sk-admin-m1YHp13elEvafGYLT27H0gmD"  # Working admin key
 PROJECT_ID = "batch_test_proj"
 COLLECTION_NAME = "batch_collection"
 DIMENSION = 384
@@ -236,9 +236,9 @@ def check_usage_stats():
     recent = usage.get_recent_operations(user_id=1, project_id=PROJECT_ID, limit=10)
     print(f"\n   Recent batch operations:")
     for op in recent:
-        if 'batch' in op['operation_type']:
-            print(f"     - {op['operation_type']}: {op['vector_count']} vectors, "
-                  f"{op['status']}, {op['duration_ms']}ms")
+        if 'batch' in op.operation_type:
+            print(f"     - {op.operation_type}: {op.vector_count} vectors, "
+                  f"{op.status}, {op.duration_ms}ms")
 
 
 def setup_test_environment():
