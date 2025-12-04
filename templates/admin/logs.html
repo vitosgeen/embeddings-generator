@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">Audit Logs</h2>
+    </div>
+    
+    <!-- Filters -->
+    <div class="mb-4">
+        <label class="text-sm font-medium text-gray-700 mr-2">Filter by action:</label>
+        <select 
+            hx-get="/admin/logs" 
+            hx-trigger="change"
+            hx-target="#logs-table"
+            hx-include="this"
+            name="action"
+            class="mt-1 block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+            <option value="">All Actions</option>
+            <option value="user_created" {% if filter_action == 'user_created' %}selected{% endif %}>User Created</option>
+            <option value="user_deleted" {% if filter_action == 'user_deleted' %}selected{% endif %}>User Deleted</option>
+            <option value="user_deactivated" {% if filter_action == 'user_deactivated' %}selected{% endif %}>User Deactivated</option>
+            <option value="api_key_created" {% if filter_action == 'api_key_created' %}selected{% endif %}>API Key Created</option>
+            <option value="api_key_revoked" {% if filter_action == 'api_key_revoked' %}selected{% endif %}>API Key Revoked</option>
+            <option value="api_key_deleted" {% if filter_action == 'api_key_deleted' %}selected{% endif %}>API Key Deleted</option>
+            <option value="auth_success" {% if filter_action == 'auth_success' %}selected{% endif %}>Auth Success</option>
+            <option value="auth_failure" {% if filter_action == 'auth_failure' %}selected{% endif %}>Auth Failure</option>
+        </select>
+    </div>
+    
+    <!-- Logs Table -->
+    <div id="logs-table" class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for log in logs %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ log.action }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ log.user_id or '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if log.status == 'success' %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Success</span>
+                        {% else %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">{{ log.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">
+                        {% if log.details %}
+                        <code class="text-xs bg-gray-100 px-2 py-1 rounded">{{ log.details }}</code>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

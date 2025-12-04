@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uvicorn
 from dotenv import load_dotenv
 
@@ -6,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.bootstrap import build_usecase, build_vdb_usecases
+from app.bootstrap_auth import bootstrap_auth_database
 from app.adapters.rest.fastapi_app import build_fastapi
 from app.adapters.grpc.server import serve_grpc
 from app.config import REST_PORT, GRPC_PORT
@@ -14,7 +16,13 @@ from app.config import REST_PORT, GRPC_PORT
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_LOG_LEVEL = "info"
 
+logger = logging.getLogger(__name__)
+
 async def run():
+    # Bootstrap authentication database (idempotent)
+    logger.info("Bootstrapping authentication database...")
+    bootstrap_auth_database()
+    
     # Build embedding service use case
     uc = build_usecase()
     

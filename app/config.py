@@ -8,6 +8,8 @@ DEFAULT_BATCH_SIZE = "32"
 DEFAULT_REST_PORT = "8000" 
 DEFAULT_GRPC_PORT = "50051"
 DEFAULT_VDB_STORAGE_PATH = "./vdb-data"
+DEFAULT_AUTH_DB_PATH = "./data/auth.db"
+DEFAULT_SESSION_TIMEOUT_MINUTES = "30"
 
 # Environment variable names
 ENV_MODEL_ID = "MODEL_ID"
@@ -17,6 +19,10 @@ ENV_REST_PORT = "REST_PORT"
 ENV_GRPC_PORT = "GRPC_PORT"
 ENV_API_KEYS = "API_KEYS"
 ENV_VDB_STORAGE_PATH = "VDB_STORAGE_PATH"
+ENV_AUTH_DB_PATH = "AUTH_DB_PATH"
+ENV_AUTH_DB_ENCRYPTION_KEY = "AUTH_DB_ENCRYPTION_KEY"
+ENV_SESSION_SECRET_KEY = "SESSION_SECRET_KEY"
+ENV_SESSION_TIMEOUT_MINUTES = "SESSION_TIMEOUT_MINUTES"
 
 # Device options (for documentation/validation)
 DEVICE_AUTO = "auto"
@@ -35,12 +41,21 @@ REST_PORT = int(os.getenv(ENV_REST_PORT, DEFAULT_REST_PORT))
 GRPC_PORT = int(os.getenv(ENV_GRPC_PORT, DEFAULT_GRPC_PORT))
 VDB_STORAGE_PATH = os.getenv(ENV_VDB_STORAGE_PATH, DEFAULT_VDB_STORAGE_PATH)
 
+# Authentication & Database
+AUTH_DB_PATH = os.getenv(ENV_AUTH_DB_PATH, DEFAULT_AUTH_DB_PATH)
+AUTH_DB_ENCRYPTION_KEY = os.getenv(ENV_AUTH_DB_ENCRYPTION_KEY)  # Optional SQLCipher encryption
+SESSION_SECRET_KEY = os.getenv(ENV_SESSION_SECRET_KEY, "change-me-in-production-" + os.urandom(16).hex())
+SESSION_TIMEOUT_MINUTES = int(os.getenv(ENV_SESSION_TIMEOUT_MINUTES, DEFAULT_SESSION_TIMEOUT_MINUTES))
+
 # Authentication
 def _parse_api_keys() -> Dict[str, str]:
     """Parse API keys from environment variable.
     
     Format: account_name:api_key,account_name2:api_key2
     Returns: Dict mapping api_key -> account_name
+    
+    Note: This is for backward compatibility with the old auth system.
+    New system uses AUTH_DB_PATH database for auth.
     """
     api_keys_env = os.getenv(ENV_API_KEYS, "")
     if not api_keys_env:
@@ -54,5 +69,6 @@ def _parse_api_keys() -> Dict[str, str]:
     
     return api_keys
 
+# Legacy API keys (for bootstrap and backward compatibility)
 API_KEYS: Dict[str, str] = _parse_api_keys()
 VALID_API_KEYS: Set[str] = set(API_KEYS.keys())

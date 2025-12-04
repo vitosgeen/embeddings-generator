@@ -4,47 +4,29 @@ import pytest
 import os
 import tempfile
 import shutil
-import importlib
 from httpx import AsyncClient
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vdb_test_environment():
-    """Setup test environment before any imports."""
+    """Setup test environment for VDB tests."""
     # Store original env
-    original_api_keys = os.environ.get("API_KEYS")
     original_storage = os.environ.get("VDB_STORAGE_PATH")
     
     # Set test environment
     temp_dir = tempfile.mkdtemp()
-    os.environ["API_KEYS"] = "admin:test-key-123,user1:test-key-456"
     os.environ["VDB_STORAGE_PATH"] = temp_dir
-    
-    # Reload config module to pick up new environment
-    import app.config
-    import app.auth
-    importlib.reload(app.config)
-    importlib.reload(app.auth)
     
     yield temp_dir
     
     # Cleanup and restore
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
-    
-    if original_api_keys:
-        os.environ["API_KEYS"] = original_api_keys
-    elif "API_KEYS" in os.environ:
-        del os.environ["API_KEYS"]
         
     if original_storage:
         os.environ["VDB_STORAGE_PATH"] = original_storage
     elif "VDB_STORAGE_PATH" in os.environ:
         del os.environ["VDB_STORAGE_PATH"]
-    
-    # Reload config again to restore original values
-    importlib.reload(app.config)
-    importlib.reload(app.auth)
 
 
 from app.bootstrap import build_usecase, build_vdb_usecases
@@ -76,15 +58,37 @@ def vdb_app(test_storage_path):
 
 
 @pytest.fixture
-def api_key():
-    """API key for authentication."""
-    return "test-key-123"
+def vdb_auth_headers(admin_auth_headers, test_auth_db):
+    """VDB API authentication headers with project access."""
+    # Grant admin user access to test projects
+    project_storage = test_auth_db['project_storage']
+    admin_user = test_auth_db['admin']['user']
+    
+    # Create test projects in auth database
+    test_projects = ["test_project_1", "test_dup_project", "vdb_test_proj"]
+    for proj_id in test_projects:
+        try:
+            project_storage.create_project(
+                project_id=proj_id,
+                owner_user_id=admin_user.id,
+                name=f"Test {proj_id}"
+            )
+        except Exception:
+            pass  # Project may already exist
+    
+    return admin_auth_headers
 
 
 @pytest.fixture
-def auth_headers(api_key):
-    """Authentication headers."""
-    return {"Authorization": f"Bearer {api_key}"}
+def auth_headers(vdb_auth_headers):
+    """Alias for backward compatibility."""
+    return vdb_auth_headers
+
+
+@pytest.fixture
+def api_key(test_auth_db):
+    """API key for authentication - backward compatibility."""
+    return test_auth_db['admin']['key']
 
 
 @pytest.mark.asyncio

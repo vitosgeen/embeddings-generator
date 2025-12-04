@@ -6,8 +6,10 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
-from ...auth import get_current_user
+from ...domain.auth import AuthContext
+from .auth_middleware import get_current_user, AuthenticationMiddleware
 from .vdb_routes import build_vdb_router
+from .admin_routes import build_admin_router
 
 
 class EmbedReq(BaseModel):
@@ -24,6 +26,9 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         version="2.0.0",
     )
     
+    # Add authentication middleware
+    app.add_middleware(AuthenticationMiddleware)
+    
     # Set up templates
     templates = Jinja2Templates(directory="templates")
 
@@ -36,7 +41,7 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         return uc.health()
 
     @app.post("/embed")
-    def embed(req: EmbedReq, current_user: str = Depends(get_current_user)):
+    def embed(req: EmbedReq, auth: AuthContext = Depends(get_current_user)):
         items: List[str] = []
         if req.text and req.text.strip():
             items.append(req.text.strip())
@@ -49,7 +54,8 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         if len(items) == 1:
             result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
             # Add metadata about the request
-            result["requested_by"] = current_user
+            result["requested_by"] = auth.username
+            result["user_role"] = auth.role
             return result
         else:
             res = uc.embed_batch(
@@ -59,7 +65,8 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
                 "model_id": res["model_id"],
                 "dim": res["dim"],
                 "embeddings": [it["embedding"] for it in res["items"]],
-                "requested_by": current_user,
+                "requested_by": auth.username,
+                "user_role": auth.role,
             }
 
     # Include VDB routes if use cases are provided
@@ -74,5 +81,9 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
             delete_vector_uc=vdb_usecases["delete_vector"],
         )
         app.include_router(vdb_router)
+    
+    # Include admin UI routes
+    admin_router = build_admin_router()
+    app.include_router(admin_router)
 
     return app
