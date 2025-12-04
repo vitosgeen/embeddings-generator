@@ -1,17 +1,20 @@
-# 🧠 Embeddings Service
+# 🧠 Embeddings + Vector Database Service
 
 [![CI/CD Pipeline](https://github.com/vitosgeen/embeddings-generator/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vitosgeen/embeddings-generator/actions/workflows/ci-cd.yml)
 [![codecov](https://codecov.io/gh/vitosgeen/embeddings-generator/branch/main/graph/badge.svg)](https://codecov.io/gh/vitosgeen/embeddings-generator)
 
-A lightweight **REST + gRPC microservice** for generating **text embeddings** using [Sentence Transformers](https://www.sbert.net/).  
-Implements a clean modular structure and can run locally or via Docker Compose.
+A lightweight **REST + gRPC microservice** for generating **text embeddings** and storing/searching **vector data** using [Sentence Transformers](https://www.sbert.net/) and [LanceDB](https://lancedb.com/).  
+Implements clean architecture with dual functionality: **embedding generation** and **vector database** operations.
 
 ---
 
 ## ⚙️ Description
 
-This service accepts text input and returns vector embeddings.  
-It's designed for internal company usage — other systems can call it via REST or gRPC.
+This unified service provides:
+- **Embedding Generation**: Convert text to vector embeddings using state-of-the-art transformer models
+- **Vector Database**: Store, search, and manage vector embeddings with automatic sharding
+- **Multi-tenancy**: Support multiple projects with isolated storage
+- **REST + gRPC**: Dual API interfaces for maximum flexibility
 
 ## 🎯 Demo
 
@@ -70,6 +73,7 @@ nano .env  # or use your preferred editor
 | `GRPC_PORT` | gRPC API port | `50051` | `9090` |
 | `LOG_LEVEL` | Logging level | `INFO` | `DEBUG` |
 | `API_KEYS` | Authentication keys (account:key pairs) | Required | `admin:sk-admin-key123` |
+| `VDB_STORAGE_PATH` | Vector database storage directory | `./vdb-data` | `/srv/vdb-data` |
 
 ### 🔐 Authentication Setup
 
@@ -96,7 +100,187 @@ Popular model choices for different use cases:
 - **Multilingual**: `intfloat/multilingual-e5-base` (768 dim)
 
 
-## 🌐 REST API Usage
+## 🗄️ Vector Database API Usage
+
+The service includes a complete vector database for storing and searching embeddings. Perfect for building semantic search, recommendation systems, and RAG applications.
+
+---
+
+### 🔑 All VDB endpoints require API key authentication
+
+Include your API key in the `Authorization` header for all requests:
+```bash
+-H "Authorization: Bearer sk-admin-your-secret-key"
+```
+
+---
+
+### 📁 Projects and Collections
+
+#### Create a project
+```bash
+curl -X POST http://localhost:8000/vdb/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "project_id": "my_app",
+    "metadata": {"description": "My application vectors"}
+  }'
+```
+
+#### List all projects
+```bash
+curl -X GET http://localhost:8000/vdb/projects \
+  -H "Authorization: Bearer sk-admin-your-secret-key"
+```
+
+#### Create a collection
+```bash
+curl -X POST http://localhost:8000/vdb/projects/my_app/collections \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "name": "documents",
+    "dimension": 768,
+    "metric": "cosine",
+    "shards": 4,
+    "description": "Document embeddings"
+  }'
+```
+
+**Distance Metrics:**
+- `cosine` - Cosine similarity (most common for text)
+- `dot` - Dot product similarity
+- `L2` - Euclidean distance
+
+#### List collections
+```bash
+curl -X GET http://localhost:8000/vdb/projects/my_app/collections \
+  -H "Authorization: Bearer sk-admin-your-secret-key"
+```
+
+---
+
+### ➕ Add Vectors
+
+```bash
+curl -X POST http://localhost:8000/vdb/projects/my_app/collections/documents/add \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "id": "doc_001",
+    "embedding": [0.1, 0.2, ..., 0.768],
+    "metadata": {
+      "title": "Introduction to AI",
+      "category": "technology"
+    },
+    "document": "Artificial intelligence is transforming..."
+  }'
+```
+
+**With debug info:**
+```bash
+curl -X POST "http://localhost:8000/vdb/projects/my_app/collections/documents/add?include_debug=true" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{...}'
+```
+
+---
+
+### 🔍 Search Vectors
+
+```bash
+curl -X POST http://localhost:8000/vdb/projects/my_app/collections/documents/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "query_vector": [0.1, 0.2, ..., 0.768],
+    "limit": 10
+  }'
+```
+
+**With debug info** to see shard performance:
+```bash
+curl -X POST "http://localhost:8000/vdb/projects/my_app/collections/documents/search?include_debug=true" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{...}'
+```
+
+---
+
+### 🗑️ Delete Vectors
+
+```bash
+curl -X DELETE http://localhost:8000/vdb/projects/my_app/collections/documents/vectors/doc_001 \
+  -H "Authorization: Bearer sk-admin-your-secret-key"
+```
+
+---
+
+### 🔄 Complete Workflow Example
+
+```bash
+# 1. Generate an embedding
+EMBEDDING=$(curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"text": "Introduction to machine learning", "normalize": true}' \
+  | jq -r '.embedding')
+
+# 2. Store it in the vector database
+curl -X POST http://localhost:8000/vdb/projects/my_app/collections/documents/add \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d "{
+    \"id\": \"doc_ml_intro\",
+    \"embedding\": $EMBEDDING,
+    \"metadata\": {\"title\": \"ML Introduction\", \"category\": \"education\"},
+    \"document\": \"Introduction to machine learning\"
+  }"
+
+# 3. Search for similar documents
+QUERY_EMBEDDING=$(curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"text": "What is AI?", "task_type": "query", "normalize": true}' \
+  | jq -r '.embedding')
+
+curl -X POST http://localhost:8000/vdb/projects/my_app/collections/documents/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d "{\"query_vector\": $QUERY_EMBEDDING, \"limit\": 5}"
+```
+
+---
+
+### 🏗️ VDB Storage Architecture
+
+The vector database uses automatic sharding for horizontal scalability:
+
+```
+./vdb-data/
+└── my_app/                    # Project
+    ├── _project.json          # Project metadata
+    └── collections/
+        └── documents/         # Collection
+            ├── _config.json   # Collection config
+            ├── shard_0/       # Auto-sharded storage
+            ├── shard_1/
+            ├── shard_2/
+            └── shard_3/
+```
+
+**Key Features:**
+- **Automatic sharding** based on vector ID hash
+- **Parallel search** across all shards
+- **Isolated storage** per project
+- **LanceDB backend** for efficient vector operations
+
+---
+
+## 🌐 REST API Usage (Embeddings)
 
 The service exposes a REST interface powered by **FastAPI**.  
 It allows you to send text or multiple texts and receive their vector embeddings in JSON format.

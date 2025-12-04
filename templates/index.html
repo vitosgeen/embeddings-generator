@@ -144,8 +144,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🧠 Embeddings Service</h1>
-            <p>REST + gRPC microservice for generating text embeddings using Sentence Transformers</p>
+            <h1>🧠 Embeddings + Vector Database Service</h1>
+            <p>Unified REST microservice for text embeddings and vector storage with LanceDB</p>
             <div style="margin-top: 1rem;">
                 <span class="status-indicator status-loading" id="status"></span>
                 <span id="status-text">Checking service status...</span>
@@ -155,9 +155,9 @@
         <div class="main-content">
             <h2>🚀 About This Service</h2>
             <p>
-                This lightweight microservice generates high-quality text embeddings using state-of-the-art 
-                Sentence Transformer models. It's designed for easy integration into ML pipelines, search systems, 
-                and recommendation engines.
+                This unified microservice provides two powerful capabilities: generating high-quality text embeddings 
+                using Sentence Transformers and storing/searching vectors in a scalable LanceDB database. 
+                Perfect for semantic search, RAG systems, recommendation engines, and ML pipelines.
             </p>
             
             <div class="grid">
@@ -165,9 +165,11 @@
                     <h3>🎯 Features</h3>
                     <ul>
                         <li>High-quality text embeddings</li>
-                        <li>Batch processing support</li>
+                        <li>Vector database with LanceDB</li>
+                        <li>Semantic search capabilities</li>
+                        <li>Multi-tenant project isolation</li>
+                        <li>Automatic sharding for scale</li>
                         <li>REST and gRPC interfaces</li>
-                        <li>Configurable models and devices</li>
                         <li>Production-ready architecture</li>
                     </ul>
                 </div>
@@ -179,6 +181,7 @@
                         <li>FastAPI for REST API</li>
                         <li>gRPC for high-performance calls</li>
                         <li>Sentence Transformers</li>
+                        <li>LanceDB vector database</li>
                         <li>PyTorch backend</li>
                     </ul>
                 </div>
@@ -195,6 +198,8 @@
             </div>
             
             <h2>🌐 API Endpoints</h2>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">📝 Embeddings Service</h3>
             <div class="endpoints">
                 <div class="endpoint">
                     <span class="method get">GET</span>
@@ -206,11 +211,51 @@
                 </div>
                 <div class="endpoint">
                     <span class="method post">POST</span>
-                    <strong>/embed</strong> - Generate embeddings for text(s)
+                    <strong>/embed</strong> - Generate embeddings for text(s) 🔐
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">🗄️ Vector Database Service</h3>
+            <div class="endpoints">
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/projects</strong> - Create a new project 🔐
                 </div>
                 <div class="endpoint">
                     <span class="method get">GET</span>
+                    <strong>/vdb/projects</strong> - List all projects 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/projects/{project_id}/collections</strong> - Create a collection 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <strong>/vdb/projects/{project_id}/collections</strong> - List collections 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/vectors</strong> - Add vector to collection 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/search</strong> - Search similar vectors 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/vectors/delete</strong> - Delete vector by ID 🔐
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">📚 Documentation</h3>
+            <div class="endpoints">
+                <div class="endpoint">
+                    <span class="method get">GET</span>
                     <strong>/docs</strong> - Interactive API documentation (Swagger UI)
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <strong>/redoc</strong> - Alternative API documentation (ReDoc)
                 </div>
             </div>
             
@@ -218,11 +263,13 @@
             
             <div class="card" style="margin-bottom: 1.5rem; background: #fff3cd; border-left: 4px solid #856404;">
                 <h3 style="color: #856404;">🔐 Authentication Required</h3>
-                <p>The <code>/embed</code> endpoint requires authentication using Bearer tokens (API keys). Contact your administrator for API keys.</p>
+                <p>All endpoints (except <code>/</code>, <code>/health</code>, <code>/docs</code>) require Bearer token authentication.</p>
                 <p><strong>Available accounts:</strong> admin, user1, app1, monitoring</p>
             </div>
             
-            <h3>Single Text Embedding (Authenticated)</h3>
+            <h3>🧠 Embeddings Service Examples</h3>
+            
+            <h4 style="margin-top: 1rem;">Single Text Embedding</h4>
             <div class="code-block">
 curl -X POST "{{ base_url }}/embed" \
   -H "Content-Type: application/json" \
@@ -249,6 +296,88 @@ curl -X POST "{{ base_url }}/embed" \
   }'
             </div>
             
+            <h3 style="margin-top: 2rem;">🗄️ Vector Database Service Examples</h3>
+            
+            <h4 style="margin-top: 1rem;">1. Create a Project</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/projects" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app"
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">2. Create a Collection</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/projects/my-rag-app/collections" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "collection_name": "documents",
+    "dimension": 768,
+    "distance_metric": "cosine"
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">3. Add Vectors</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/vectors" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app",
+    "collection_name": "documents",
+    "vector_id": "doc-1",
+    "vector": [0.1, 0.2, 0.3, ...],
+    "metadata": {"title": "AI Overview", "page": 1}
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">4. Search Vectors</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app",
+    "collection_name": "documents",
+    "query_vector": [0.1, 0.2, 0.3, ...],
+    "top_k": 5
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">5. Complete RAG Workflow (Generate + Store + Search)</h4>
+            <div class="code-block">
+# 1. Generate embedding
+EMBEDDING=$(curl -X POST "{{ base_url }}/embed" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{"text": "What is AI?"}' | jq -r '.embedding')
+
+# 2. Store in VDB
+curl -X POST "{{ base_url }}/vdb/vectors" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d "{
+    \"project_id\": \"my-rag-app\",
+    \"collection_name\": \"documents\",
+    \"vector_id\": \"query-1\",
+    \"vector\": $EMBEDDING
+  }"
+
+# 3. Search similar vectors
+curl -X POST "{{ base_url }}/vdb/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d "{
+    \"project_id\": \"my-rag-app\",
+    \"collection_name\": \"documents\",
+    \"query_vector\": $EMBEDDING,
+    \"top_k\": 3
+  }"
+            </div>
+            
             <h3>Health Check (Public)</h3>
             <div class="code-block">
 curl -X GET "{{ base_url }}/health"
@@ -256,12 +385,41 @@ curl -X GET "{{ base_url }}/health"
             
             <h3>Example Response with Authentication</h3>
             <div class="code-block">
+# Embeddings response
 {
   "model_id": "BAAI/bge-base-en-v1.5",
   "dim": 768,
   "embedding": [0.1234, -0.5678, ...],
   "requested_by": "admin"
 }
+
+# VDB search response
+{
+  "results": [
+    {
+      "vector_id": "doc-1",
+      "score": 0.95,
+      "metadata": {"title": "AI Overview", "page": 1}
+    },
+    {
+      "vector_id": "doc-3",
+      "score": 0.87,
+      "metadata": {"title": "ML Basics", "page": 5}
+    }
+  ]
+}
+            </div>
+            
+            <div class="card" style="margin-top: 2rem; background: #d1ecf1; border-left: 4px solid #0c5460;">
+                <h3 style="color: #0c5460;">💡 VDB Service Features</h3>
+                <ul>
+                    <li><strong>Multi-tenant:</strong> Isolate data per project</li>
+                    <li><strong>Auto-sharding:</strong> Automatically distributes vectors across shards</li>
+                    <li><strong>Distance metrics:</strong> Cosine, L2, and Dot Product</li>
+                    <li><strong>Metadata:</strong> Store arbitrary JSON metadata with vectors</li>
+                    <li><strong>Persistence:</strong> Data persists across restarts</li>
+                    <li><strong>Scalable:</strong> LanceDB handles billions of vectors</li>
+                </ul>
             </div>
         </div>
         
@@ -269,6 +427,7 @@ curl -X GET "{{ base_url }}/health"
             <p>
                 🔗 <a href="/docs" style="color: white;">Interactive API Docs</a> | 
                 📋 <a href="/health" style="color: white;">Health Check</a> |
+                🗄️ Vector Database with LanceDB |
                 🧠 Powered by Sentence Transformers
             </p>
         </div>

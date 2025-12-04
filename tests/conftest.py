@@ -1,7 +1,10 @@
 """Common test fixtures and mock implementations."""
 
+import os
 from typing import List
 from unittest.mock import Mock
+import tempfile
+import shutil
 
 import pytest
 

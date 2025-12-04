@@ -71,7 +71,28 @@ run:
 dev: proto run
 
 # -----------------------------
-# � Testing
+# 🗄️ Vector Database
+# -----------------------------
+
+.PHONY: vdb-demo
+vdb-demo:
+	@echo "🎬 Running VDB demo..."
+	@if [ ! -f ".env" ]; then \
+		echo "⚠️  .env file not found. Creating from .env_example..."; \
+		cp .env_example .env; \
+		echo "⚠️  Please edit .env and set your API_KEYS before running the demo!"; \
+		exit 1; \
+	fi
+	./scripts/demo_vdb.sh
+
+.PHONY: vdb-clean
+vdb-clean:
+	@echo "🧹 Cleaning VDB data..."
+	rm -rf ./vdb-data
+	@echo "✅ VDB data cleaned."
+
+# -----------------------------
+# 🧪 Testing
 # -----------------------------
 
 .PHONY: test

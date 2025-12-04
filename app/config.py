@@ -7,6 +7,7 @@ DEFAULT_DEVICE = "auto"
 DEFAULT_BATCH_SIZE = "32"
 DEFAULT_REST_PORT = "8000" 
 DEFAULT_GRPC_PORT = "50051"
+DEFAULT_VDB_STORAGE_PATH = "./vdb-data"
 
 # Environment variable names
 ENV_MODEL_ID = "MODEL_ID"
@@ -15,6 +16,7 @@ ENV_BATCH_SIZE = "BATCH_SIZE"
 ENV_REST_PORT = "REST_PORT"
 ENV_GRPC_PORT = "GRPC_PORT"
 ENV_API_KEYS = "API_KEYS"
+ENV_VDB_STORAGE_PATH = "VDB_STORAGE_PATH"
 
 # Device options (for documentation/validation)
 DEVICE_AUTO = "auto"
@@ -31,6 +33,7 @@ DEVICE = os.getenv(ENV_DEVICE, DEFAULT_DEVICE)  # "auto"|"cpu"|"cuda"|"mps"
 BATCH_SIZE = int(os.getenv(ENV_BATCH_SIZE, DEFAULT_BATCH_SIZE))
 REST_PORT = int(os.getenv(ENV_REST_PORT, DEFAULT_REST_PORT))
 GRPC_PORT = int(os.getenv(ENV_GRPC_PORT, DEFAULT_GRPC_PORT))
+VDB_STORAGE_PATH = os.getenv(ENV_VDB_STORAGE_PATH, DEFAULT_VDB_STORAGE_PATH)
 
 # Authentication
 def _parse_api_keys() -> Dict[str, str]:

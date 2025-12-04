@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
 from ...auth import get_current_user
+from .vdb_routes import build_vdb_router
 
 
 class EmbedReq(BaseModel):
@@ -16,8 +17,12 @@ class EmbedReq(BaseModel):
     normalize: bool = True
 
 
-def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
-    app = FastAPI(title="Embeddings Service (REST)")
+def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI:
+    app = FastAPI(
+        title="Embeddings + Vector Database Service",
+        description="Generate embeddings and store/search vectors",
+        version="2.0.0",
+    )
     
     # Set up templates
     templates = Jinja2Templates(directory="templates")
@@ -56,5 +61,18 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
                 "embeddings": [it["embedding"] for it in res["items"]],
                 "requested_by": current_user,
             }
+
+    # Include VDB routes if use cases are provided
+    if vdb_usecases:
+        vdb_router = build_vdb_router(
+            create_project_uc=vdb_usecases["create_project"],
+            list_projects_uc=vdb_usecases["list_projects"],
+            create_collection_uc=vdb_usecases["create_collection"],
+            list_collections_uc=vdb_usecases["list_collections"],
+            add_vector_uc=vdb_usecases["add_vector"],
+            search_vectors_uc=vdb_usecases["search_vectors"],
+            delete_vector_uc=vdb_usecases["delete_vector"],
+        )
+        app.include_router(vdb_router)
 
     return app
