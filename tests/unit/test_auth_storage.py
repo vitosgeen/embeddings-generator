@@ -382,7 +382,7 @@ class TestAPIKeyStorage:
         
         assert api_key.last_used_at is None
         
-        key_storage.update_last_used(api_key.id)
+        key_storage.update_last_used(api_key.key_id)
         
         retrieved = key_storage.get_api_key_by_id(api_key.id)
         assert retrieved.last_used_at is not None

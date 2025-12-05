@@ -36,6 +36,7 @@ def initialize_auth_storage():
     if _auth_db is None:
         logger.info(f"Initializing auth database: {config.AUTH_DB_PATH}")
         _auth_db = AuthDatabase(config.AUTH_DB_PATH)
+        _auth_db.create_tables()  # Ensure all tables exist
         _user_storage = UserStorage(_auth_db)
         _key_storage = APIKeyStorage(_auth_db)
         _audit_storage = AuditLogStorage(_auth_db)

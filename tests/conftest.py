@@ -115,7 +115,7 @@ def test_auth_db():
     admin_key_hash = key_manager.hash_key(admin_key)
     key_storage.create_api_key(
         user_id=admin_user.id,
-        key_id=admin_key[:20],  # Use first 20 chars as key_id
+        key_id=admin_key,  # Full key as key_id
         key_hash=admin_key_hash,
         label="Test Admin Key"
     )
@@ -130,7 +130,7 @@ def test_auth_db():
     service_key_hash = key_manager.hash_key(service_key)
     key_storage.create_api_key(
         user_id=service_user.id,
-        key_id=service_key[:20],
+        key_id=service_key,  # Full key as key_id
         key_hash=service_key_hash,
         label="Test Service Key"
     )
@@ -145,7 +145,7 @@ def test_auth_db():
     monitor_key_hash = key_manager.hash_key(monitor_key)
     key_storage.create_api_key(
         user_id=monitor_user.id,
-        key_id=monitor_key[:20],
+        key_id=monitor_key,  # Full key as key_id
         key_hash=monitor_key_hash,
         label="Test Monitor Key"
     )
@@ -218,7 +218,21 @@ def setup_test_auth(test_auth_db):
         project_storage=test_auth_db['project_storage']
     )
     
+    # Reset VDB routes usage tracking to force reinitialization with test DB
+    try:
+        from app.adapters.rest import vdb_routes
+        vdb_routes._usage_storage = None
+        vdb_routes._quota_storage = None
+    except ImportError:
+        pass  # VDB routes not imported yet
+    
     yield
     
     # Cleanup
     reset_auth_storage()
+    try:
+        from app.adapters.rest import vdb_routes
+        vdb_routes._usage_storage = None
+        vdb_routes._quota_storage = None
+    except ImportError:
+        pass

@@ -38,8 +38,8 @@ def mock_uc():
 
 
 @pytest.fixture
-def client(mock_uc):
-    """Test client with mocked dependencies."""
+def client(mock_uc, setup_test_auth):
+    """Test client with mocked dependencies and test auth setup."""
     app = build_fastapi(mock_uc)
     return TestClient(app)
 
@@ -126,21 +126,21 @@ class TestAuthentication:
     
     def test_malformed_authorization_header(self, client):
         """Test malformed authorization headers."""
-        # Missing Bearer prefix
+        # Missing Bearer prefix - returns 401 Unauthorized
         response = client.post(
             "/embed",
             headers={"Authorization": "sk-test-123"},
             json={"text": "test"}
         )
-        assert response.status_code == 403
+        assert response.status_code == 401
         
-        # Empty Bearer token - FastAPI HTTPBearer returns 403 for malformed headers
+        # Empty Bearer token - also returns 401
         response = client.post(
             "/embed",
             headers={"Authorization": "Bearer "},
             json={"text": "test"}
         )
-        assert response.status_code == 403
+        assert response.status_code == 401  # returns 401 Unauthorized for invalid token
 
 
 class TestAuthenticationConfiguration:

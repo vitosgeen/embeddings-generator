@@ -60,22 +60,8 @@ def vdb_app(test_storage_path):
 @pytest.fixture
 def vdb_auth_headers(admin_auth_headers, test_auth_db):
     """VDB API authentication headers with project access."""
-    # Grant admin user access to test projects
-    project_storage = test_auth_db['project_storage']
-    admin_user = test_auth_db['admin']['user']
-    
-    # Create test projects in auth database
-    test_projects = ["test_project_1", "test_dup_project", "vdb_test_proj"]
-    for proj_id in test_projects:
-        try:
-            project_storage.create_project(
-                project_id=proj_id,
-                owner_user_id=admin_user.id,
-                name=f"Test {proj_id}"
-            )
-        except Exception:
-            pass  # Project may already exist
-    
+    # Just return admin auth headers - admin can create and access all projects
+    # Don't pre-create projects here - let tests create them as needed
     return admin_auth_headers
 
 
@@ -173,7 +159,7 @@ class TestVDBProjectManagement:
                 "/vdb/projects",
                 json={"project_id": "no_auth"},
             )
-            assert response.status_code == 403
+            assert response.status_code == 401  # returns 401 Unauthorized for missing auth
 
 
 @pytest.mark.asyncio

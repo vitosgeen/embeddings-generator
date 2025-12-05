@@ -61,6 +61,11 @@ class User(Base):
     )
 
     @property
+    def is_active(self) -> bool:
+        """Check if user is active (alias for active field)."""
+        return self.active
+
+    @property
     def meta(self) -> Dict[str, Any]:
         """Get metadata as dictionary."""
         if self.meta_json:
@@ -206,6 +211,16 @@ class AuditLog(Base):
     # Relationships
     user = relationship("User", back_populates="audit_logs")
 
+    @property
+    def created_at(self):
+        """Alias for timestamp field."""
+        return self.timestamp
+    
+    @property
+    def details(self) -> Dict[str, Any]:
+        """Alias for detail_data property."""
+        return self.detail_data
+    
     @property
     def detail_data(self) -> Dict[str, Any]:
         """Get details as dictionary."""
@@ -422,10 +437,23 @@ class UserStorage:
             
             return query.limit(limit).offset(offset).all()
 
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        """Get user by email.
+        
+        Args:
+            email: User email
+            
+        Returns:
+            User instance or None if not found
+        """
+        with self.db.get_session() as session:
+            return session.query(User).filter(User.email == email).first()
+
     def update_user(
         self,
         user_id: int,
         email: Optional[str] = None,
+        role: Optional[str] = None,
         active: Optional[bool] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[User]:
@@ -434,6 +462,7 @@ class UserStorage:
         Args:
             user_id: User ID to update
             email: New email (if provided)
+            role: New role (if provided)
             active: New active status (if provided)
             metadata: New metadata (if provided)
             
@@ -447,6 +476,8 @@ class UserStorage:
             
             if email is not None:
                 user.email = email
+            if role is not None:
+                user.role = role
             if active is not None:
                 user.active = active
             if metadata is not None:
@@ -740,6 +771,19 @@ class AuditLogStorage:
             List of AuditLog instances
         """
         return self.list_logs(action=action, limit=limit, offset=offset)
+
+    def list_user_logs(self, user_id: int, limit: int = 100, offset: int = 0) -> List[AuditLog]:
+        """List audit logs for a specific user.
+        
+        Args:
+            user_id: User ID to filter by
+            limit: Maximum number of results
+            offset: Offset for pagination
+            
+        Returns:
+            List of AuditLog instances for the user
+        """
+        return self.list_logs(user_id=user_id, limit=limit, offset=offset)
 
 
 class ProjectStorage:
