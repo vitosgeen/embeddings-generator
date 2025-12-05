@@ -200,3 +200,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# db files
+*.db
+*.sqlite3
