@@ -11,6 +11,12 @@ from .auth_middleware import get_current_user, AuthenticationMiddleware
 from .vdb_routes import build_vdb_router
 from .admin_routes import build_admin_router
 from .task_routes import router as task_router
+from ...utils.text_chunking import (
+    chunk_text,
+    combine_embeddings,
+    should_chunk,
+    get_chunking_info,
+)
 
 
 class EmbedReq(BaseModel):
@@ -18,6 +24,11 @@ class EmbedReq(BaseModel):
     texts: Optional[List[str]] = None
     task_type: str = "passage"
     normalize: bool = True
+    auto_chunk: bool = False
+    chunk_size: int = 2000
+    chunk_overlap: int = 200
+    combine_method: str = "average"  # average, weighted, max, first
+    return_chunks: bool = False
 
 
 def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI:
@@ -40,6 +51,22 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
     @app.get("/health")
     def health():
         return uc.health()
+    
+    @app.post("/embed/check")
+    def check_chunking(req: EmbedReq, auth: AuthContext = Depends(get_current_user)):
+        """Check if text would be chunked and get chunking info."""
+        if not req.text:
+            raise HTTPException(status_code=400, detail="Provide 'text' to check")
+        
+        info = get_chunking_info(req.text, max_chars=req.chunk_size)
+        info["auto_chunk_enabled"] = req.auto_chunk
+        info["recommended_action"] = (
+            "enable auto_chunk=true" if info["would_be_chunked"] and not req.auto_chunk
+            else "text will be chunked" if info["would_be_chunked"]
+            else "no chunking needed"
+        )
+        
+        return info
 
     @app.post("/embed")
     def embed(req: EmbedReq, auth: AuthContext = Depends(get_current_user)):
@@ -52,12 +79,77 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         if not items:
             raise HTTPException(status_code=400, detail="Provide 'text' or 'texts'")
 
+        # Handle single text with potential chunking
         if len(items) == 1:
-            result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
-            # Add metadata about the request
-            result["requested_by"] = auth.username
-            result["user_role"] = auth.role
-            return result
+            text = items[0]
+            text_length = len(text)
+            needs_chunking = should_chunk(text) or (req.auto_chunk and text_length > req.chunk_size)
+            
+            # Check if text is too long and auto_chunk is disabled
+            if needs_chunking and not req.auto_chunk:
+                # Generate embedding but warn about truncation
+                result = uc.embed(text, task_type=req.task_type, normalize=req.normalize)
+                result["requested_by"] = auth.username
+                result["user_role"] = auth.role
+                result["warning"] = f"Text length ({text_length} chars) exceeds model limit (~2048 chars). Consider using auto_chunk=true"
+                result["text_length"] = text_length
+                result["truncated"] = True
+                return result
+            
+            # Auto-chunking enabled or text is short
+            if needs_chunking and req.auto_chunk:
+                # Split text into chunks
+                chunks = chunk_text(
+                    text,
+                    max_chars=req.chunk_size,
+                    overlap=req.chunk_overlap
+                )
+                
+                # Embed each chunk
+                chunk_results = []
+                for chunk in chunks:
+                    chunk_result = uc.embed(chunk, task_type=req.task_type, normalize=req.normalize)
+                    chunk_results.append(chunk_result["embedding"])
+                
+                # Combine embeddings
+                combined_embedding = combine_embeddings(
+                    chunk_results,
+                    method=req.combine_method
+                )
+                
+                # Get model info from health check
+                health_info = uc.health()
+                
+                # Build response
+                response = {
+                    "model_id": health_info["model_id"],
+                    "dim": health_info["dim"],
+                    "embedding": combined_embedding,
+                    "requested_by": auth.username,
+                    "user_role": auth.role,
+                    "text_length": text_length,
+                    "was_chunked": True,
+                    "num_chunks": len(chunks),
+                    "chunk_sizes": [len(c) for c in chunks],
+                    "combine_method": req.combine_method,
+                }
+                
+                # Optionally return individual chunk embeddings
+                if req.return_chunks:
+                    response["chunk_embeddings"] = chunk_results
+                    response["chunks"] = chunks
+                
+                return response
+            else:
+                # Text is short enough, process normally
+                result = uc.embed(text, task_type=req.task_type, normalize=req.normalize)
+                result["requested_by"] = auth.username
+                result["user_role"] = auth.role
+                result["text_length"] = text_length
+                result["was_chunked"] = False
+                return result
+        
+        # Multiple texts - process as batch (no chunking for batch mode)
         else:
             res = uc.embed_batch(
                 items, task_type=req.task_type, normalize=req.normalize
