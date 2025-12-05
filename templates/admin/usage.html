@@ -1,0 +1,329 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Usage Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">Usage Dashboard</h2>
+        <div class="flex space-x-2">
+            <select id="timeRange" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="all">All Time</option>
+            </select>
+            <button onclick="refreshData()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Operations</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ usage_summary.total_operations|default(0)|int|format_number }}</dd>
+                <p class="mt-1 text-xs text-gray-500">All VDB operations</p>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Vectors</dt>
+                <dd class="mt-1 text-3xl font-semibold text-blue-600">{{ usage_summary.total_vectors|default(0)|int|format_number }}</dd>
+                <p class="mt-1 text-xs text-gray-500">Vectors processed</p>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Data Volume</dt>
+                <dd class="mt-1 text-3xl font-semibold text-purple-600">{{ (usage_summary.total_payload_size|default(0) / 1024 / 1024)|round(1) }} MB</dd>
+                <p class="mt-1 text-xs text-gray-500">Total payload size</p>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                <dd class="mt-1 text-3xl font-semibold text-green-600">{{ usage_summary.success_rate|default(0)|round(1) }}%</dd>
+                <p class="mt-1 text-xs text-gray-500">Successful operations</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Operations Breakdown -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Operations by Type</h3>
+        </div>
+        <div class="p-6">
+            <canvas id="operationsChart" height="80"></canvas>
+        </div>
+    </div>
+    
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Top Users -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Top Users</h3>
+            </div>
+            <div class="overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Operations</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vectors</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for user in top_users[:10] %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ user.username }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ user.operations|format_number }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ user.vectors|format_number }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
+                                No usage data available
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Top Projects -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Top Projects</h3>
+            </div>
+            <div class="overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Project</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Operations</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vectors</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for project in top_projects[:10] %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ project.project_id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ project.operations|format_number }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ project.vectors|format_number }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">
+                                No usage data available
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quota Status -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Quota Status</h3>
+            <a href="/admin/quotas" class="text-sm text-blue-600 hover:text-blue-800">Manage Quotas →</a>
+        </div>
+        <div class="p-6">
+            <div class="space-y-4">
+                {% for quota_item in quota_status %}
+                <div class="border rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-medium text-gray-900">
+                                {% if quota_item.username %}
+                                    {{ quota_item.username }}
+                                {% endif %}
+                                {% if quota_item.project_id %}
+                                    / {{ quota_item.project_id }}
+                                {% endif %}
+                            </h4>
+                            <p class="text-sm text-gray-500">
+                                {% if quota_item.project_id %}
+                                    Project-specific quota
+                                {% elif quota_item.username %}
+                                    User-level quota
+                                {% else %}
+                                    Default quota
+                                {% endif %}
+                            </p>
+                        </div>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full
+                            {% if quota_item.usage_percent >= 90 %}bg-red-100 text-red-800
+                            {% elif quota_item.usage_percent >= 75 %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ quota_item.usage_percent|round(0)|int }}% Used
+                        </span>
+                    </div>
+                    
+                    {% if quota_item.max_vectors_per_project %}
+                    <div class="mb-2">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600">Vectors</span>
+                            <span class="text-gray-900">{{ quota_item.current_vectors|format_number }} / {{ quota_item.max_vectors_per_project|format_number }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="h-2 rounded-full {% if quota_item.usage_percent >= 90 %}bg-red-600{% elif quota_item.usage_percent >= 75 %}bg-yellow-500{% else %}bg-green-500{% endif %}"
+                                 style="width: {{ [quota_item.usage_percent, 100]|min }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if quota_item.max_searches_per_day %}
+                    <div class="text-sm text-gray-600">
+                        Daily searches: {{ quota_item.searches_today|format_number }} / {{ quota_item.max_searches_per_day|format_number }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 text-center py-4">No quotas configured</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Operations -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Operations</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Project</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Operation</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vectors</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for op in recent_operations[:50] %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ op.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ op.username|default('Unknown') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ op.project_id }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                {{ op.operation_type }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ op.vector_count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if op.duration_ms %}{{ op.duration_ms }}ms{% else %}-{% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full
+                                {% if op.status == 'success' %}bg-green-100 text-green-800
+                                {% elif op.status == 'failure' %}bg-red-100 text-red-800
+                                {% elif op.status == 'partial_failure' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ op.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                            No operations recorded yet
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Operations Chart
+const ctx = document.getElementById('operationsChart');
+const operationsData = {{ operations_chart_data|tojson }};
+
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: operationsData.labels,
+        datasets: [{
+            label: 'Operations',
+            data: operationsData.operations,
+            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 1
+        }, {
+            label: 'Vectors',
+            data: operationsData.vectors,
+            backgroundColor: 'rgba(16, 185, 129, 0.5)',
+            borderColor: 'rgb(16, 185, 129)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            title: {
+                display: false
+            }
+        }
+    }
+});
+
+function refreshData() {
+    window.location.reload();
+}
+
+// Time range selector
+document.getElementById('timeRange').addEventListener('change', function(e) {
+    const range = e.target.value;
+    window.location.href = `/admin/usage?time_range=${range}`;
+});
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 """Admin UI routes for user and API key management."""
 
+import logging
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -19,9 +20,21 @@ from app.adapters.infra.auth_storage import (
 from app.config import AUTH_DB_PATH
 from .auth_middleware import get_current_user
 
+logger = logging.getLogger(__name__)
+
 
 # Initialize templates
 templates = Jinja2Templates(directory="templates")
+
+# Add custom filters
+def format_number(value):
+    """Format number with thousands separator."""
+    try:
+        return f"{int(value):,}"
+    except (ValueError, TypeError):
+        return value
+
+templates.env.filters["format_number"] = format_number
 
 # Initialize storage
 _auth_db = AuthDatabase(AUTH_DB_PATH)
@@ -31,10 +44,122 @@ _audit_storage = AuditLogStorage(_auth_db)
 _project_storage = ProjectStorage(_auth_db)
 
 
+# Admin session helper
+async def get_admin_user(request: Request) -> AuthContext:
+    """Get admin user from session cookie or API key.
+    
+    Checks for admin_session cookie first, then falls back to API key auth.
+    """
+    # Check for admin session cookie
+    admin_session = request.cookies.get("admin_session")
+    if admin_session:
+        try:
+            # Parse session cookie: "username:user_id"
+            parts = admin_session.split(":")
+            if len(parts) == 2:
+                username, user_id_str = parts
+                user = _user_storage.get_user_by_username(username)
+                if user and user.active and user.role == "admin" and str(user.id) == user_id_str:
+                    # Create auth context for admin user
+                    role = Role.from_string(user.role)
+                    return AuthContext(
+                        user_id=user.id,
+                        username=user.username,
+                        role=user.role,
+                        permissions=role.get_permissions(),
+                        accessible_projects=[],  # Admin has access to all
+                        api_key_id="session",
+                    )
+        except Exception as e:
+            logger.error(f"Failed to parse admin session: {e}")
+    
+    # Fall back to regular API key authentication
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        # Redirect to login if no valid authentication
+        raise HTTPException(
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            detail="Please login",
+            headers={"Location": "/admin/login"}
+        )
+
+
 def build_admin_router() -> APIRouter:
     """Build the admin UI router."""
     
     router = APIRouter(prefix="/admin", tags=["Admin UI"])
+    
+    # ========================================================================
+    # Authentication
+    # ========================================================================
+    
+    @router.get("/login", response_class=HTMLResponse)
+    async def login_page(request: Request, error: Optional[str] = None):
+        """Display login page."""
+        return templates.TemplateResponse("admin/login.html", {
+            "request": request,
+            "error": error
+        })
+    
+    @router.post("/login")
+    async def login(
+        request: Request,
+        username: str = Form(...),
+        password: str = Form(...)
+    ):
+        """Handle login submission.
+        
+        Note: This is a simplified authentication for demo purposes.
+        Password is validated against a simple check (admin123 for admin user).
+        In production, use proper password hashing and validation.
+        """
+        # Get user by username
+        user = _user_storage.get_user_by_username(username)
+        if not user or not user.active:
+            return templates.TemplateResponse("admin/login.html", {
+                "request": request,
+                "error": "Invalid username or password",
+                "username": username
+            })
+        
+        # Check if user has admin role
+        if user.role != "admin":
+            return templates.TemplateResponse("admin/login.html", {
+                "request": request,
+                "error": "Access denied: Admin role required",
+                "username": username
+            })
+        
+        # Simple password validation (for demo - replace with proper auth in production)
+        # For now, accept "admin123" for admin user
+        if password != "admin123":
+            return templates.TemplateResponse("admin/login.html", {
+                "request": request,
+                "error": "Invalid username or password",
+                "username": username
+            })
+        
+        # Create session cookie
+        response = RedirectResponse(url="/admin/", status_code=status.HTTP_302_FOUND)
+        
+        # Set session cookie (simple implementation - use proper session management in production)
+        response.set_cookie(
+            key="admin_session",
+            value=f"{user.username}:{user.id}",
+            httponly=True,
+            max_age=3600 * 24,  # 24 hours
+            samesite="lax"
+        )
+        
+        return response
+    
+    @router.get("/logout")
+    async def logout():
+        """Handle logout."""
+        response = RedirectResponse(url="/admin/login", status_code=status.HTTP_302_FOUND)
+        response.delete_cookie("admin_session")
+        return response
     
     # ========================================================================
     # Dashboard
@@ -43,7 +168,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/", response_class=HTMLResponse)
     async def admin_dashboard(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Admin dashboard homepage."""
         auth.require_permission("admin:users")
@@ -80,7 +205,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/users", response_class=HTMLResponse)
     async def list_users(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         role: Optional[str] = None,
     ):
         """List all users."""
@@ -99,7 +224,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/users/new", response_class=HTMLResponse)
     async def new_user_form(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Show form to create new user."""
         auth.require_permission("admin:users")
@@ -114,7 +239,7 @@ def build_admin_router() -> APIRouter:
     @router.post("/users", response_class=HTMLResponse)
     async def create_user(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         username: str = Form(...),
         email: Optional[str] = Form(None),
         role: str = Form(...),
@@ -168,7 +293,7 @@ def build_admin_router() -> APIRouter:
     async def get_user(
         request: Request,
         user_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Get user details."""
         auth.require_permission("admin:users")
@@ -190,7 +315,7 @@ def build_admin_router() -> APIRouter:
     @router.post("/users/{user_id}/deactivate")
     async def deactivate_user(
         user_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Deactivate a user."""
         auth.require_permission("admin:users")
@@ -213,7 +338,7 @@ def build_admin_router() -> APIRouter:
     @router.delete("/users/{user_id}")
     async def delete_user(
         user_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Delete a user."""
         auth.require_permission("admin:users")
@@ -240,7 +365,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/keys", response_class=HTMLResponse)
     async def list_keys(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         user_id: Optional[int] = None,
     ):
         """List API keys."""
@@ -271,7 +396,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/keys/new", response_class=HTMLResponse)
     async def new_key_form(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         user_id: Optional[int] = None,
     ):
         """Show form to create new API key."""
@@ -292,10 +417,10 @@ def build_admin_router() -> APIRouter:
     @router.post("/keys", response_class=HTMLResponse)
     async def create_key(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         user_id: int = Form(...),
         label: str = Form(...),
-        expires_days: Optional[int] = Form(None),
+        expires_days: str = Form(""),
     ):
         """Create a new API key."""
         auth.require_permission("admin:api_keys")
@@ -310,8 +435,16 @@ def build_admin_router() -> APIRouter:
         
         # Calculate expiration
         expires_at = None
-        if expires_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_days)
+        # Convert empty string to None, then parse as int if present
+        expires_days_int = None
+        if expires_days and expires_days.strip():
+            try:
+                expires_days_int = int(expires_days)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid expiration days")
+        
+        if expires_days_int:
+            expires_at = datetime.utcnow() + timedelta(days=expires_days_int)
         
         # Store key
         api_key = _key_storage.create_api_key(
@@ -345,7 +478,7 @@ def build_admin_router() -> APIRouter:
     @router.post("/keys/{key_id}/revoke")
     async def revoke_key(
         key_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Revoke an API key."""
         auth.require_permission("admin:api_keys")
@@ -368,7 +501,7 @@ def build_admin_router() -> APIRouter:
     @router.delete("/keys/{key_id}")
     async def delete_key(
         key_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Delete an API key."""
         auth.require_permission("admin:api_keys")
@@ -395,7 +528,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/logs", response_class=HTMLResponse)
     async def view_logs(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         action: Optional[str] = None,
         limit: int = 50,
     ):
@@ -421,7 +554,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/projects", response_class=HTMLResponse)
     async def list_projects(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         owner_id: Optional[int] = None,
     ):
         """List all projects."""
@@ -454,7 +587,7 @@ def build_admin_router() -> APIRouter:
     @router.get("/projects/new", response_class=HTMLResponse)
     async def new_project_form(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Show form to create new project."""
         auth.require_permission("admin:users")
@@ -471,7 +604,7 @@ def build_admin_router() -> APIRouter:
     @router.post("/projects", response_class=HTMLResponse)
     async def create_project(
         request: Request,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         project_id: str = Form(...),
         owner_user_id: int = Form(...),
         name: Optional[str] = Form(None),
@@ -539,7 +672,7 @@ def build_admin_router() -> APIRouter:
     async def get_project(
         request: Request,
         project_id: str,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Get project details and user access."""
         auth.require_permission("admin:users")
@@ -570,7 +703,7 @@ def build_admin_router() -> APIRouter:
     async def grant_project_access(
         request: Request,
         project_id: str,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
         user_id: int = Form(...),
         role: str = Form("project-owner"),
     ):
@@ -616,7 +749,7 @@ def build_admin_router() -> APIRouter:
     async def revoke_project_access(
         project_id: str,
         user_id: int,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Revoke a user's access to a project."""
         auth.require_permission("admin:users")
@@ -651,7 +784,7 @@ def build_admin_router() -> APIRouter:
     @router.post("/projects/{project_id}/deactivate")
     async def deactivate_project(
         project_id: str,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Deactivate a project."""
         auth.require_permission("admin:users")
@@ -674,7 +807,7 @@ def build_admin_router() -> APIRouter:
     @router.delete("/projects/{project_id}")
     async def delete_project(
         project_id: str,
-        auth: AuthContext = Depends(get_current_user),
+        auth: AuthContext = Depends(get_admin_user),
     ):
         """Delete a project."""
         auth.require_permission("admin:users")
@@ -693,5 +826,173 @@ def build_admin_router() -> APIRouter:
         )
         
         return {"status": "success", "message": f"Project {project_id} deleted"}
+    
+    # ========================================================================
+    # Usage Dashboard
+    # ========================================================================
+    
+    @router.get("/usage", response_class=HTMLResponse)
+    async def usage_dashboard(
+        request: Request,
+        time_range: str = "24h",
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Usage statistics and monitoring dashboard."""
+        auth.require_permission("admin:users")
+        
+        from app.adapters.infra.auth_storage import UsageTrackingStorage, QuotaStorage
+        from datetime import timedelta
+        from collections import defaultdict
+        
+        usage_storage = UsageTrackingStorage(_auth_db)
+        quota_storage = QuotaStorage(_auth_db)
+        
+        # Calculate time range
+        now = datetime.utcnow()
+        if time_range == "24h":
+            start_time = now - timedelta(hours=24)
+        elif time_range == "7d":
+            start_time = now - timedelta(days=7)
+        elif time_range == "30d":
+            start_time = now - timedelta(days=30)
+        else:  # all
+            start_time = None
+        
+        # Get usage summary
+        usage_summary = usage_storage.get_usage_stats(start_time=start_time)
+        
+        # Calculate success rate
+        with _auth_db.get_session() as session:
+            from app.adapters.infra.auth_storage import UsageRecord
+            query = session.query(UsageRecord)
+            if start_time:
+                query = query.filter(UsageRecord.timestamp >= start_time)
+            
+            all_ops = query.all()
+            if all_ops:
+                successful = len([op for op in all_ops if op.status == "success"])
+                usage_summary["success_rate"] = (successful / len(all_ops)) * 100
+            else:
+                usage_summary["success_rate"] = 0
+        
+        # Get top users
+        user_stats = defaultdict(lambda: {"operations": 0, "vectors": 0})
+        for record in all_ops:
+            user_stats[record.user_id]["operations"] += 1
+            user_stats[record.user_id]["vectors"] += record.vector_count
+        
+        users = _user_storage.list_users()
+        user_map = {u.id: u.username for u in users}
+        
+        top_users = []
+        for user_id, stats in sorted(user_stats.items(), key=lambda x: x[1]["operations"], reverse=True):
+            top_users.append({
+                "username": user_map.get(user_id, f"User #{user_id}"),
+                "operations": stats["operations"],
+                "vectors": stats["vectors"]
+            })
+        
+        # Get top projects
+        project_stats = defaultdict(lambda: {"operations": 0, "vectors": 0})
+        for record in all_ops:
+            project_stats[record.project_id]["operations"] += 1
+            project_stats[record.project_id]["vectors"] += record.vector_count
+        
+        top_projects = []
+        for proj_id, stats in sorted(project_stats.items(), key=lambda x: x[1]["operations"], reverse=True):
+            top_projects.append({
+                "project_id": proj_id,
+                "operations": stats["operations"],
+                "vectors": stats["vectors"]
+            })
+        
+        # Get quota status
+        quota_status = []
+        quotas = quota_storage.list_quotas()
+        for quota in quotas[:10]:  # Show top 10
+            # Get current usage
+            current_vectors = 0
+            searches_today = 0
+            
+            with _auth_db.get_session() as session:
+                from app.adapters.infra.auth_storage import UsageRecord
+                
+                if quota.project_id:
+                    # Project-specific
+                    vector_query = session.query(UsageRecord).filter(
+                        UsageRecord.project_id == quota.project_id,
+                        UsageRecord.operation_type.in_(["add_vector", "batch_add_vector"]),
+                        UsageRecord.status == "success"
+                    )
+                    search_query = session.query(UsageRecord).filter(
+                        UsageRecord.project_id == quota.project_id,
+                        UsageRecord.operation_type == "search",
+                        UsageRecord.timestamp >= now - timedelta(days=1)
+                    )
+                elif quota.user_id:
+                    # User-specific
+                    vector_query = session.query(UsageRecord).filter(
+                        UsageRecord.user_id == quota.user_id,
+                        UsageRecord.operation_type.in_(["add_vector", "batch_add_vector"]),
+                        UsageRecord.status == "success"
+                    )
+                    search_query = session.query(UsageRecord).filter(
+                        UsageRecord.user_id == quota.user_id,
+                        UsageRecord.operation_type == "search",
+                        UsageRecord.timestamp >= now - timedelta(days=1)
+                    )
+                else:
+                    continue
+                
+                current_vectors = sum(r.vector_count for r in vector_query.all())
+                searches_today = search_query.count()
+            
+            usage_percent = 0
+            if quota.max_vectors_per_project:
+                usage_percent = (current_vectors / quota.max_vectors_per_project) * 100
+            
+            quota_status.append({
+                "username": user_map.get(quota.user_id) if quota.user_id else None,
+                "project_id": quota.project_id,
+                "max_vectors_per_project": quota.max_vectors_per_project,
+                "current_vectors": current_vectors,
+                "max_searches_per_day": quota.max_searches_per_day,
+                "searches_today": searches_today,
+                "usage_percent": usage_percent
+            })
+        
+        # Prepare chart data
+        by_operation = usage_summary.get("by_operation", {})
+        operations_chart_data = {
+            "labels": list(by_operation.keys()),
+            "operations": [stats["count"] for stats in by_operation.values()],
+            "vectors": [stats["vectors"] for stats in by_operation.values()]
+        }
+        
+        # Get recent operations with usernames
+        recent_ops = usage_storage.get_recent_operations(limit=50)
+        recent_operations = []
+        for op in recent_ops:
+            recent_operations.append({
+                "timestamp": op.timestamp,
+                "username": user_map.get(op.user_id, "Unknown"),
+                "project_id": op.project_id,
+                "operation_type": op.operation_type,
+                "vector_count": op.vector_count,
+                "duration_ms": op.duration_ms,
+                "status": op.status
+            })
+        
+        return templates.TemplateResponse("admin/usage.html", {
+            "request": request,
+            "auth": auth,
+            "usage_summary": usage_summary,
+            "top_users": top_users,
+            "top_projects": top_projects,
+            "quota_status": quota_status,
+            "operations_chart_data": operations_chart_data,
+            "recent_operations": recent_operations,
+            "time_range": time_range
+        })
     
     return router

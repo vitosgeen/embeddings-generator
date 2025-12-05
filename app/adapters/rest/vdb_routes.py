@@ -76,6 +76,16 @@ class SearchRequest(BaseModel):
     metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Filter results by metadata fields")
 
 
+class SemanticSearchRequest(BaseModel):
+    """Request model for semantic search by text query."""
+    query: str = Field(..., description="Text query for semantic search", min_length=1, max_length=10000)
+    limit: int = Field(default=10, description="Maximum number of results", gt=0, le=100)
+    metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Filter results by metadata fields")
+    min_score: Optional[float] = Field(default=None, description="Minimum similarity score (0.0 to 1.0)", ge=0.0, le=1.0)
+    include_text: bool = Field(default=True, description="Include document text in results")
+    include_metadata: bool = Field(default=True, description="Include metadata in results")
+
+
 class UpsertVectorRequest(BaseModel):
     id: str = Field(..., description="Unique vector identifier")
     embedding: List[float] = Field(..., description="Vector embedding")
@@ -457,6 +467,169 @@ def build_vdb_router(
                     user_id=auth.user_id,
                     project_id=project_id,
                     operation_type="search",
+                    collection_name=collection,
+                    status="failure",
+                    metadata={"error": str(e)}
+                )
+            raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    
+    @router.post("/projects/{project_id}/collections/{collection}/similar")
+    def semantic_search(
+        project_id: str,
+        collection: str,
+        req: SemanticSearchRequest,
+        auth: AuthContext = Depends(get_current_user),
+    ):
+        """Semantic search by text query.
+        
+        Automatically converts text query to embedding and searches for similar items.
+        Returns full item data including id, metadata, document text, and similarity scores.
+        
+        This is perfect for:
+        - "Find products similar to 'red running shoes'"
+        - "Show documents related to 'machine learning'"
+        - "Get recommendations based on this description"
+        
+        Requires read:vectors permission and project access.
+        """
+        start_time = time.time()
+        auth.require_permission("read:vectors")
+        
+        # Check project access
+        if not auth.can_access_project(project_id):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to project '{project_id}'",
+            )
+        
+        # Check quota
+        quota_storage = get_quota_storage()
+        if quota_storage:
+            allowed, reason = quota_storage.check_quota(
+                user_id=auth.user_id,
+                project_id=project_id,
+                operation_type="search",
+                vector_count=1
+            )
+            if not allowed:
+                usage_storage = get_usage_storage()
+                if usage_storage:
+                    usage_storage.record_operation(
+                        user_id=auth.user_id,
+                        project_id=project_id,
+                        operation_type="semantic_search",
+                        collection_name=collection,
+                        status="quota_exceeded",
+                        metadata={"reason": reason}
+                    )
+                raise HTTPException(status_code=429, detail=f"Quota exceeded: {reason}")
+        
+        try:
+            # Generate embedding from query text
+            from ...usecases.generate_embedding import GenerateEmbeddingUC
+            from ...bootstrap import build_usecase
+            
+            embedding_uc = build_usecase()
+            
+            # Use 'query' task type for search queries (optimized for search)
+            embedding_result = embedding_uc.embed(req.query, task_type="query", normalize=True)
+            query_vector = embedding_result["embedding"]
+            
+            # Perform vector search
+            result = search_vectors_uc.execute(
+                project_id=project_id,
+                collection=collection,
+                query_vector=query_vector,
+                limit=req.limit,
+                include_debug=False,
+            )
+            
+            # Apply metadata filtering if provided
+            if req.metadata_filter and "data" in result:
+                filtered_results = []
+                for item in result["data"]:
+                    if "metadata" in item and item["metadata"]:
+                        match = all(
+                            item["metadata"].get(k) == v 
+                            for k, v in req.metadata_filter.items()
+                        )
+                        if match:
+                            filtered_results.append(item)
+                result["data"] = filtered_results
+            
+            # Apply minimum score filter if provided
+            if req.min_score is not None and "data" in result:
+                filtered_results = [
+                    item for item in result["data"]
+                    if item.get("score", 0) >= req.min_score
+                ]
+                result["data"] = filtered_results
+            
+            # Format results with rich data
+            if "data" in result:
+                formatted_results = []
+                for item in result["data"]:
+                    formatted_item = {
+                        "id": item.get("id"),
+                        "score": item.get("score"),
+                    }
+                    
+                    # Include metadata if requested
+                    if req.include_metadata and "metadata" in item:
+                        formatted_item["metadata"] = item["metadata"]
+                    
+                    # Include document text if requested  
+                    if req.include_text and "document" in item:
+                        formatted_item["document"] = item["document"]
+                    
+                    formatted_results.append(formatted_item)
+                
+                result["data"] = formatted_results
+            
+            # Add query info and count to response
+            result["query"] = req.query
+            result["query_embedding_dim"] = len(query_vector)
+            result["count"] = len(result.get("data", []))
+            
+            # Record usage
+            duration_ms = int((time.time() - start_time) * 1000)
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="semantic_search",
+                    collection_name=collection,
+                    duration_ms=duration_ms,
+                    status="success",
+                    metadata={
+                        "result_count": result.get("count", 0),
+                        "query_length": len(req.query),
+                        "had_filter": req.metadata_filter is not None,
+                        "min_score": req.min_score
+                    }
+                )
+            
+            return result
+        except ValueError as e:
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="semantic_search",
+                    collection_name=collection,
+                    status="failure",
+                    metadata={"error": str(e)}
+                )
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="semantic_search",
                     collection_name=collection,
                     status="failure",
                     metadata={"error": str(e)}
