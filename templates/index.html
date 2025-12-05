@@ -211,6 +211,23 @@
         </div>
         
         <div class="main-content">
+            <!-- API Key Configuration -->
+            <div class="card" style="margin-bottom: 2rem; border-left-color: #28a745;">
+                <h3>🔑 Quick API Test</h3>
+                <p style="margin-bottom: 1rem;">Enter your API key to quickly test the service or visit <a href="/user-docs" style="color: #667eea;">📚 Full Documentation</a> for interactive testing.</p>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="password" id="quickApiKey" placeholder="sk-your-api-key-here" 
+                           style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;" />
+                    <button onclick="saveQuickApiKey()" 
+                            style="padding: 0.75rem 1.5rem; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        Save Key
+                    </button>
+                    <span id="quickKeyStatus" style="padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; background: #f8d7da; color: #721c24;">
+                        Not Set
+                    </span>
+                </div>
+            </div>
+            
             <h2>🚀 About This Service</h2>
             <p>
                 This unified microservice provides two powerful capabilities: generating high-quality text embeddings 
@@ -546,6 +563,38 @@ curl -X GET "{{ base_url }}/health"
         
         // Optional: Refresh health status every 30 seconds
         setInterval(checkServiceHealth, 30000);
+        
+        // Quick API Key management
+        function saveQuickApiKey() {
+            const apiKey = document.getElementById('quickApiKey').value.trim();
+            if (apiKey) {
+                localStorage.setItem('api_key', apiKey);
+                document.getElementById('quickKeyStatus').textContent = 'Saved ✓';
+                document.getElementById('quickKeyStatus').style.background = '#d4edda';
+                document.getElementById('quickKeyStatus').style.color = '#155724';
+                
+                // Update code examples with the key
+                document.querySelectorAll('.code-block').forEach(block => {
+                    if (block.textContent.includes('Authorization:')) {
+                        block.innerHTML = block.innerHTML.replace(
+                            /Bearer sk-[a-zA-Z0-9-]+/g,
+                            `Bearer ${apiKey}`
+                        );
+                    }
+                });
+            } else {
+                alert('Please enter an API key');
+            }
+        }
+        
+        // Load saved API key on page load
+        const savedApiKey = localStorage.getItem('api_key');
+        if (savedApiKey) {
+            document.getElementById('quickApiKey').value = savedApiKey;
+            document.getElementById('quickKeyStatus').textContent = 'Saved ✓';
+            document.getElementById('quickKeyStatus').style.background = '#d4edda';
+            document.getElementById('quickKeyStatus').style.color = '#155724';
+        }
     </script>
 </body>
 </html>

@@ -148,8 +148,10 @@ INFO:     gRPC server started on port 50051
 ### Step 8: Verify Installation
 
 **Open your browser and visit:**
-- **Main Interface**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+- **Main Interface**: http://localhost:8000 (with quick API key testing)
+- **User Documentation**: http://localhost:8000/user-docs (interactive API testing)
+- **API Documentation**: http://localhost:8000/docs (Swagger UI)
+- **Admin Dashboard**: http://localhost:8000/admin/login (user & key management)
 - **Health Check**: http://localhost:8000/health
 
 **Test with curl:**
@@ -174,6 +176,18 @@ curl -X POST http://localhost:8000/embed \
   "user_role": "admin"
 }
 ```
+
+**Interactive API Testing:**
+
+Visit **http://localhost:8000/user-docs** for a user-friendly interface where you can:
+- Enter your API key once and test all endpoints
+- Generate single or batch embeddings with live results
+- Create and manage vector database projects
+- Store and search vectors with semantic similarity
+- See real-time request/response data with syntax highlighting
+- Copy code examples for your applications
+
+The main page (http://localhost:8000) also includes a quick API key input for convenient testing of basic features.
 
 ---
 
@@ -241,22 +255,61 @@ nano .env  # or use your preferred editor
 | `GRPC_PORT` | gRPC API port | `50051` | `9090` |
 | `LOG_LEVEL` | Logging level | `INFO` | `DEBUG` |
 | `API_KEYS` | Authentication keys (account:key pairs) | Required | `admin:sk-admin-key123` |
+| `ADMIN_PASSWORD` | Admin dashboard login password | `admin123` | `MyS3cur3P@ss!` |
 | `VDB_STORAGE_PATH` | Vector database storage directory | `./vdb-data` | `/srv/vdb-data` |
 
 ### 🔐 Authentication Setup
 
-The service requires API keys for the `/embed` endpoint. Configure them in your `.env` file:
+The service uses two types of authentication:
+
+#### 1. API Keys (for programmatic access)
+
+Configure API keys in your `.env` file for accessing the REST and gRPC APIs:
 
 ```bash
 # Format: account_name:api_key,account_name2:api_key2
 API_KEYS=admin:sk-admin-your-secret-key,user1:sk-user1-another-key,monitoring:sk-monitor-key
 ```
 
+#### 2. Admin Dashboard Password (for web interface)
+
+Set the password for the admin web dashboard at `/admin/login`:
+
+```bash
+# Default is 'admin123' - CHANGE THIS IN PRODUCTION!
+ADMIN_PASSWORD=your-secure-password-here
+```
+
+**To change the admin password:**
+
+1. **Edit `.env` file**:
+   ```bash
+   ADMIN_PASSWORD=MyNewSecurePassword123!
+   ```
+
+2. **Or use the password setup script**:
+   ```bash
+   python3 scripts/set_admin_password.py
+   ```
+
+3. **Restart the service**:
+   ```bash
+   make stop && make run
+   ```
+
+**Login Credentials:**
+- **URL**: http://localhost:8000/admin/login
+- **Username**: `admin` (any user with admin role)
+- **Password**: Value from `ADMIN_PASSWORD` in `.env`
+
 **Security Best Practices:**
+- Change default password immediately in production
+- Use strong passwords (12+ characters, mixed case, numbers, symbols)
 - Use strong, unique API keys (32+ characters)
-- Rotate keys regularly in production
+- Rotate keys and passwords regularly
 - Store secrets securely (use secret management systems)
 - Use HTTPS/TLS for all communications
+- Never commit `.env` file to version control
 
 ### 📋 Model Options
 

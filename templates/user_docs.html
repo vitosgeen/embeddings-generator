@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Documentation - Embeddings Service</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .api-key-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .api-key-input {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .api-key-input input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .api-key-input button {
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .api-key-input button:hover {
+            background: #5568d3;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .test-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .test-section h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        
+        .btn-primary {
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .response-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #2d3748;
+            color: #e2e8f0;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .response-box.visible {
+            display: block;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .curl-example {
+            background: #2d3748;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            position: relative;
+        }
+        
+        .curl-example h4 {
+            color: #e2e8f0;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .curl-example pre {
+            margin: 0;
+            overflow-x: auto;
+        }
+        
+        .curl-example code {
+            color: #68d391;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #4a5568;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .copy-btn:hover {
+            background: #2d3748;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+            color: white;
+        }
+        
+        .method.get {
+            background: #48bb78;
+        }
+        
+        .method.post {
+            background: #4299e1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        
+        <div class="header">
+            <h1>📚 User Documentation & API Testing</h1>
+            <p>Interactive documentation with live API testing capabilities</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- API Key Configuration -->
+            <div class="api-key-section">
+                <h2>🔑 API Key Configuration</h2>
+                <p>Enter your API key to test the endpoints below:</p>
+                <div class="api-key-input">
+                    <input type="password" id="apiKey" placeholder="sk-your-api-key-here" />
+                    <button onclick="saveApiKey()">Save Key</button>
+                </div>
+                <p style="margin-top: 1rem;">
+                    Status: <span id="apiKeyStatus" class="status-badge status-disconnected">Not Configured</span>
+                </p>
+            </div>
+            
+            <!-- API Testing Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('embed')">Embeddings</button>
+                <button class="tab" onclick="switchTab('vdb')">Vector Database</button>
+                <button class="tab" onclick="switchTab('batch')">Batch Operations</button>
+            </div>
+            
+            <!-- Embeddings Tab -->
+            <div id="embed-tab" class="tab-content active">
+                <div class="test-section">
+                    <h3>Generate Text Embedding</h3>
+                    <p><span class="method post">POST</span> <code>/embed</code> - Convert text to vector embeddings</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="embedCurl">curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "text": "Hello, this is a test document",
+    "task_type": "passage",
+    "normalize": true
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('embedCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Text to Embed:</label>
+                        <textarea id="embedText" placeholder="Enter your text here...">Hello, this is a test document for embedding generation.</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Task Type:</label>
+                        <select id="embedTaskType">
+                            <option value="passage">Passage (for documents)</option>
+                            <option value="query">Query (for search queries)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="embedNormalize" checked> Normalize vectors
+                        </label>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testEmbed()">Try it out</button>
+                    
+                    <div id="embedResponse" class="response-box"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>Auto-Chunking for Long Text</h3>
+                    <p><span class="method post">POST</span> <code>/embed</code> - Automatically split long text into chunks and combine embeddings</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="chunkCurl">curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "text": "Very long document text...",
+    "auto_chunk": true,
+    "chunk_size": 2000,
+    "combine_method": "average",
+    "return_chunks": true
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('chunkCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Long Text:</label>
+                        <textarea id="chunkText" placeholder="Enter long text here...">This is a very long document that needs to be split into multiple chunks for embedding generation. The service will automatically handle the chunking and combine the embeddings using your chosen method.</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Combine Method:</label>
+                        <select id="chunkMethod">
+                            <option value="average">Average (recommended)</option>
+                            <option value="weighted">Weighted</option>
+                            <option value="max">Max</option>
+                            <option value="first">First</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testChunking()">Try it out</button>
+                    
+                    <div id="chunkResponse" class="response-box"></div>
+                </div>
+            </div>
+            
+            <!-- Vector Database Tab -->
+            <div id="vdb-tab" class="tab-content">
+                <div class="test-section">
+                    <h3>Create Project</h3>
+                    <p><span class="method post">POST</span> <code>/vdb/projects</code> - Create a new vector database project</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="projectCurl">curl -X POST http://localhost:8000/vdb/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "project_id": "my-project",
+    "metadata": {"description": "My project"}
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('projectCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="text" id="vdbProjectId" placeholder="my-project" value="test-project" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description (optional):</label>
+                        <input type="text" id="vdbProjectDesc" placeholder="Project description" />
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testCreateProject()">Try it out</button>
+                    
+                    <div id="createProjectResponse" class="response-box"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>Create Collection</h3>
+                    <p><span class="method post">POST</span> <code>/vdb/projects/{project_id}/collections</code> - Create a collection within a project</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="collectionCurl">curl -X POST http://localhost:8000/vdb/projects/test-project/collections \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "name": "documents",
+    "dimension": 768
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('collectionCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="text" id="collProjectId" placeholder="my-project" value="test-project" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Collection Name:</label>
+                        <input type="text" id="collName" placeholder="documents" value="documents" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Vector Dimension:</label>
+                        <input type="number" id="collDim" value="768" />
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testCreateCollection()">Try it out</button>
+                    
+                    <div id="createCollResponse" class="response-box"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>Add Vectors</h3>
+                    <p><span class="method post">POST</span> <code>/vdb/vectors</code> - Store a vector in the database</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="addVectorCurl">curl -X POST http://localhost:8000/vdb/vectors \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "project_id": "test-project",
+    "collection_name": "documents",
+    "vector_id": "doc-1",
+    "vector": [0.1, 0.2, ...],  # 768 dimensions
+    "metadata": {"text": "Original text"}
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('addVectorCurl')">Copy</button>
+                    </div>
+                    
+                    <h4 style="margin-top: 1.5rem;">Search Vectors</h4>
+                    <p><span class="method post">POST</span> <code>/vdb/search</code> - Find similar vectors</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="searchVectorCurl">curl -X POST http://localhost:8000/vdb/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "project_id": "test-project",
+    "collection_name": "documents",
+    "query_vector": [0.1, 0.2, ...],  # 768 dimensions
+    "top_k": 5
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('searchVectorCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Text to Store:</label>
+                        <textarea id="vectorText">Artificial intelligence is transforming technology.</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="text" id="vectorProjectId" value="test-project" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Collection Name:</label>
+                        <input type="text" id="vectorCollName" value="documents" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Vector ID:</label>
+                        <input type="text" id="vectorId" value="doc-1" />
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testAddVector()">Add Vector</button>
+                    <button class="btn-primary" onclick="testSearchVector()">Search Similar</button>
+                    
+                    <div id="vectorResponse" class="response-box"></div>
+                </div>
+            </div>
+            
+            <!-- Batch Operations Tab -->
+            <div id="batch-tab" class="tab-content">
+                <div class="test-section">
+                    <h3>Batch Embeddings</h3>
+                    <p><span class="method post">POST</span> <code>/embed</code> - Generate embeddings for multiple texts at once</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="batchCurl">curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "texts": [
+      "First document text",
+      "Second document text",
+      "Third document text"
+    ],
+    "task_type": "passage",
+    "normalize": true
+  }'</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('batchCurl')">Copy</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Texts (one per line):</label>
+                        <textarea id="batchTexts" style="min-height: 150px;">Machine learning is a subset of AI.
+Deep learning uses neural networks.
+Natural language processing handles text data.</textarea>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testBatchEmbed()">Try it out</button>
+                    
+                    <div id="batchResponse" class="response-box"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>List Projects</h3>
+                    <p><span class="method get">GET</span> <code>/vdb/projects</code> - View all your projects</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="listProjectsCurl">curl -X GET http://localhost:8000/vdb/projects \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('listProjectsCurl')">Copy</button>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testListProjects()">Try it out</button>
+                    
+                    <div id="listProjectsResponse" class="response-box"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>List Collections</h3>
+                    <p><span class="method get">GET</span> <code>/vdb/projects/{project_id}/collections</code> - View all collections in a project</p>
+                    
+                    <div class="curl-example">
+                        <h4>cURL Example:</h4>
+                        <pre><code id="listCollectionsCurl">curl -X GET http://localhost:8000/vdb/projects/test-project/collections \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('listCollectionsCurl')">Copy</button>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="testListCollections()">Try it out</button>
+                    
+                    <div id="listResponse" class="response-box"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let apiKey = localStorage.getItem('api_key') || '';
+        
+        // Initialize
+        if (apiKey) {
+            document.getElementById('apiKey').value = apiKey;
+            document.getElementById('apiKeyStatus').textContent = 'Configured';
+            document.getElementById('apiKeyStatus').className = 'status-badge status-connected';
+        }
+        
+        function saveApiKey() {
+            apiKey = document.getElementById('apiKey').value.trim();
+            if (apiKey) {
+                localStorage.setItem('api_key', apiKey);
+                document.getElementById('apiKeyStatus').textContent = 'Configured ✓';
+                document.getElementById('apiKeyStatus').className = 'status-badge status-connected';
+                updateCurlExamples();
+                alert('API key saved successfully!');
+            } else {
+                alert('Please enter an API key');
+            }
+        }
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function showResponse(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(data, null, 2);
+            element.classList.add('visible');
+            element.scrollTop = 0;
+        }
+        
+        async function makeRequest(url, method, body = null) {
+            if (!apiKey) {
+                alert('Please configure your API key first');
+                return null;
+            }
+            
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                return { ok: response.ok, status: response.status, data };
+            } catch (error) {
+                return { ok: false, error: error.message };
+            }
+        }
+        
+        async function testEmbed() {
+            const text = document.getElementById('embedText').value;
+            const taskType = document.getElementById('embedTaskType').value;
+            const normalize = document.getElementById('embedNormalize').checked;
+            
+            const result = await makeRequest('/embed', 'POST', {
+                text,
+                task_type: taskType,
+                normalize
+            });
+            
+            showResponse('embedResponse', result);
+        }
+        
+        async function testChunking() {
+            const text = document.getElementById('chunkText').value;
+            const method = document.getElementById('chunkMethod').value;
+            
+            const result = await makeRequest('/embed', 'POST', {
+                text,
+                auto_chunk: true,
+                chunk_size: 2000,
+                combine_method: method,
+                return_chunks: true
+            });
+            
+            showResponse('chunkResponse', result);
+        }
+        
+        async function testCreateProject() {
+            const projectId = document.getElementById('vdbProjectId').value;
+            const description = document.getElementById('vdbProjectDesc').value;
+            
+            const result = await makeRequest('/vdb/projects', 'POST', {
+                project_id: projectId,
+                metadata: { description }
+            });
+            
+            showResponse('createProjectResponse', result);
+        }
+        
+        async function testCreateCollection() {
+            const projectId = document.getElementById('collProjectId').value;
+            const name = document.getElementById('collName').value;
+            const dimension = parseInt(document.getElementById('collDim').value);
+            
+            const result = await makeRequest(`/vdb/projects/${projectId}/collections`, 'POST', {
+                name,
+                dimension
+            });
+            
+            showResponse('createCollResponse', result);
+        }
+        
+        async function testAddVector() {
+            const text = document.getElementById('vectorText').value;
+            const projectId = document.getElementById('vectorProjectId').value;
+            const collectionName = document.getElementById('vectorCollName').value;
+            const vectorId = document.getElementById('vectorId').value;
+            
+            // First generate embedding
+            const embedResult = await makeRequest('/embed', 'POST', { text });
+            if (!embedResult.ok) {
+                showResponse('vectorResponse', embedResult);
+                return;
+            }
+            
+            // Then add to VDB
+            const result = await makeRequest('/vdb/vectors', 'POST', {
+                project_id: projectId,
+                collection_name: collectionName,
+                vector_id: vectorId,
+                vector: embedResult.data.embedding,
+                metadata: { text }
+            });
+            
+            showResponse('vectorResponse', result);
+        }
+        
+        async function testSearchVector() {
+            const text = document.getElementById('vectorText').value;
+            const projectId = document.getElementById('vectorProjectId').value;
+            const collectionName = document.getElementById('vectorCollName').value;
+            
+            // First generate embedding
+            const embedResult = await makeRequest('/embed', 'POST', { text });
+            if (!embedResult.ok) {
+                showResponse('vectorResponse', embedResult);
+                return;
+            }
+            
+            // Then search
+            const result = await makeRequest('/vdb/search', 'POST', {
+                project_id: projectId,
+                collection_name: collectionName,
+                query_vector: embedResult.data.embedding,
+                top_k: 5
+            });
+            
+            showResponse('vectorResponse', result);
+        }
+        
+        async function testBatchEmbed() {
+            const textsStr = document.getElementById('batchTexts').value;
+            const texts = textsStr.split('\n').filter(t => t.trim());
+            
+            const result = await makeRequest('/embed', 'POST', {
+                texts,
+                task_type: 'passage',
+                normalize: true
+            });
+            
+            showResponse('batchResponse', result);
+        }
+        
+        async function testListProjects() {
+            const result = await makeRequest('/vdb/projects', 'GET');
+            showResponse('listProjectsResponse', result);
+        }
+        
+        async function testListCollections() {
+            const projectId = prompt('Enter project ID:', 'test-project');
+            if (projectId) {
+                const result = await makeRequest(`/vdb/projects/${projectId}/collections`, 'GET');
+                showResponse('listResponse', result);
+            }
+        }
+        
+        // Copy curl command to clipboard
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            // Replace YOUR_API_KEY with actual key if available
+            let finalText = text;
+            if (apiKey) {
+                finalText = text.replace('YOUR_API_KEY', apiKey);
+            }
+            
+            navigator.clipboard.writeText(finalText).then(() => {
+                // Find the copy button for this element
+                const button = element.closest('.curl-example').querySelector('.copy-btn');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#48bb78';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#4a5568';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+        
+        // Update curl examples when API key is saved
+        function updateCurlExamples() {
+            if (!apiKey) return;
+            
+            document.querySelectorAll('.curl-example code').forEach(code => {
+                code.textContent = code.textContent.replace(/YOUR_API_KEY/g, apiKey);
+            });
+        }
+        
+        // Initialize curl examples with saved API key
+        if (apiKey) {
+            updateCurlExamples();
+        }
+    </script>
+</body>
+</html>

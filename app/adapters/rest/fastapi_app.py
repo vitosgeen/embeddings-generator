@@ -48,6 +48,11 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
     async def index(request: Request):
         return templates.TemplateResponse("index.html", {"request": request})
 
+    @app.get("/user-docs", response_class=HTMLResponse)
+    async def user_docs(request: Request):
+        """Interactive user documentation with API testing."""
+        return templates.TemplateResponse("user_docs.html", {"request": request})
+
     @app.get("/favicon.ico")
     async def favicon():
         """Serve a simple favicon to prevent 404 errors."""
