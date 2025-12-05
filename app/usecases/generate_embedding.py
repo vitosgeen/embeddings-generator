@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from ..ports.encoder_port import EncoderPort
+from .. import config
 
 # Health check constants
 HEALTH_STATUS_OK = "ok"
@@ -65,4 +66,5 @@ class GenerateEmbeddingUC:
             FIELD_MODEL_ID: self.encoder.model_id(),
             FIELD_DEVICE: self.encoder.device(),
             FIELD_DIM: len(probe),
+            "batch_size": config.BATCH_SIZE,
         }

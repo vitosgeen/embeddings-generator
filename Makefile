@@ -71,6 +71,38 @@ run:
 dev: proto run
 
 # -----------------------------
+# 🛑 Stop services
+# -----------------------------
+
+.PHONY: stop
+stop:
+	@echo "🛑 Stopping services by port..."
+	@echo "Stopping REST API (port 8000)..."
+	@lsof -ti:8000 | xargs -r kill -9 2>/dev/null || echo "  ℹ️  No process on port 8000"
+	@echo "Stopping gRPC server (port 50051)..."
+	@lsof -ti:50051 | xargs -r kill -9 2>/dev/null || echo "  ℹ️  No process on port 50051"
+	@echo "✅ Services stopped."
+
+.PHONY: stop-rest
+stop-rest:
+	@echo "🛑 Stopping REST API (port 8000)..."
+	@lsof -ti:8000 | xargs -r kill -9 2>/dev/null && echo "✅ REST API stopped" || echo "ℹ️  No process on port 8000"
+
+.PHONY: stop-grpc
+stop-grpc:
+	@echo "🛑 Stopping gRPC server (port 50051)..."
+	@lsof -ti:50051 | xargs -r kill -9 2>/dev/null && echo "✅ gRPC server stopped" || echo "ℹ️  No process on port 50051"
+
+.PHONY: ps
+ps:
+	@echo "📋 Checking running services..."
+	@echo "REST API (port 8000):"
+	@lsof -ti:8000 | xargs -r ps -fp 2>/dev/null || echo "  ℹ️  No process running"
+	@echo ""
+	@echo "gRPC server (port 50051):"
+	@lsof -ti:50051 | xargs -r ps -fp 2>/dev/null || echo "  ℹ️  No process running"
+
+# -----------------------------
 # 🗄️ Vector Database
 # -----------------------------
 

@@ -17,7 +17,7 @@ from app.adapters.infra.auth_storage import (
     AuditLogStorage,
     ProjectStorage,
 )
-from app.config import AUTH_DB_PATH
+from app.config import AUTH_DB_PATH, ADMIN_PASSWORD
 from .auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -131,9 +131,9 @@ def build_admin_router() -> APIRouter:
                 "username": username
             })
         
-        # Simple password validation (for demo - replace with proper auth in production)
-        # For now, accept "admin123" for admin user
-        if password != "admin123":
+        # Validate password against environment variable
+        # Password can be set via ADMIN_PASSWORD in .env file
+        if password != ADMIN_PASSWORD:
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
                 "error": "Invalid username or password",

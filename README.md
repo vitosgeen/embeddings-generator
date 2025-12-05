@@ -15,6 +15,167 @@ This unified service provides:
 - **Vector Database**: Store, search, and manage vector embeddings with automatic sharding
 - **Multi-tenancy**: Support multiple projects with isolated storage
 - **REST + gRPC**: Dual API interfaces for maximum flexibility
+- **Authentication & Authorization**: Secure API access with role-based permissions
+- **Admin Dashboard**: Web-based interface for user and project management
+
+---
+
+## 📋 Prerequisites
+
+Before starting, ensure you have the following installed:
+
+- **Python 3.8+** (Python 3.10+ recommended)
+- **pip** (Python package manager)
+- **Git** (for cloning the repository)
+- **4GB+ RAM** (for running embedding models)
+- **Optional**: CUDA-compatible GPU for faster inference
+
+Check your Python version:
+```bash
+python3 --version  # Should show 3.8 or higher
+```
+
+---
+
+## 🚀 Step-by-Step Installation Guide
+
+### Step 1: Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/vitosgeen/embeddings-generator.git
+
+# Navigate to the project directory
+cd embeddings-generator
+```
+
+### Step 2: Set Up Python Environment
+
+```bash
+# Create a virtual environment
+make venv
+
+# OR manually:
+python3 -m venv .venv
+```
+
+### Step 3: Install Dependencies
+
+```bash
+# Install all required packages
+make deps
+
+# OR manually:
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**Expected installation time**: 2-5 minutes (depending on your internet connection)
+
+### Step 4: Generate gRPC Protocol Buffers
+
+```bash
+# Generate gRPC Python files from proto definitions
+make proto
+
+# OR manually:
+source .venv/bin/activate
+python3 -m grpc_tools.protoc \
+    -I proto \
+    --python_out=proto \
+    --grpc_python_out=proto \
+    proto/embeddings.proto
+```
+
+### Step 5: Configure Environment Variables
+
+```bash
+# Copy the example environment file
+cp .env_example .env
+
+# Edit the configuration (optional - defaults work for local development)
+nano .env  # or use your preferred editor (vim, code, etc.)
+```
+
+**Minimum Required Configuration** (create `.env` file):
+```bash
+# Authentication (REQUIRED)
+API_KEYS=admin:sk-admin-secret123,user:sk-user-secret456
+
+# Admin Dashboard Password (change in production!)
+ADMIN_PASSWORD=admin123
+
+# Optional configurations (defaults shown)
+MODEL_ID=BAAI/bge-base-en-v1.5  # Embedding model
+DEVICE=auto                      # Device: auto/cpu/cuda/mps
+REST_PORT=8000                   # REST API port
+GRPC_PORT=50051                  # gRPC port
+VDB_STORAGE_PATH=./vdb-data      # Vector DB storage
+AUTH_DB_PATH=./auth.db           # Authentication database
+LOG_LEVEL=INFO                   # Logging level
+```
+
+### Step 6: Initialize the Database
+
+```bash
+# The database will be automatically created on first run
+# OR manually initialize:
+source .venv/bin/activate
+python3 -c "from app.adapters.infra.auth_storage import AuthDatabase; AuthDatabase('./auth.db').create_tables()"
+```
+
+### Step 7: Start the Application
+
+```bash
+# Start both REST and gRPC servers
+make run
+
+# OR manually:
+source .venv/bin/activate
+python3 main.py
+```
+
+**You should see output like:**
+```
+INFO:     Started server process [12345]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     gRPC server started on port 50051
+```
+
+### Step 8: Verify Installation
+
+**Open your browser and visit:**
+- **Main Interface**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
+
+**Test with curl:**
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Generate embedding (requires API key)
+curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-secret123" \
+  -d '{"text": "Hello, world!"}'
+```
+
+**Expected response:**
+```json
+{
+  "model_id": "BAAI/bge-base-en-v1.5",
+  "dim": 768,
+  "embedding": [0.123, -0.456, ...],
+  "requested_by": "admin",
+  "user_role": "admin"
+}
+```
+
+---
 
 ## 🎯 Demo
 
@@ -33,21 +194,28 @@ This unified service provides:
 | `make proto` | Generate gRPC Python files from `proto/embeddings.proto` |
 | `make run` | Run the service locally (REST + gRPC) |
 | `make dev` | Regenerate `.proto` files and run immediately |
+| `make stop` | Force stop services by killing processes on ports 8000 & 50051 |
+| `make stop-rest` | Stop only REST API (port 8000) |
+| `make stop-grpc` | Stop only gRPC server (port 50051) |
+| `make ps` | Show running services on ports 8000 & 50051 |
+| `make test` | Run all tests |
+| `make test-unit` | Run only unit tests |
+| `make test-integration` | Run only integration tests |
+| `make test-coverage` | Run tests with coverage report |
 | `make clean` | Remove virtual environment and generated gRPC files |
+| `make vdb-clean` | Clean vector database data |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (One-Liner)
+
+For experienced developers:
 
 ```bash
-# 1. Install dependencies
-make deps
-
-# 2. Generate gRPC stubs
-make proto
-
-# 3. Run the service
-make run
+git clone https://github.com/vitosgeen/embeddings-generator.git && \
+cd embeddings-generator && \
+echo "API_KEYS=admin:sk-admin-secret123" > .env && \
+make deps && make proto && make run
 ```
 
 ## ⚙️ Configuration
@@ -99,6 +267,150 @@ Popular model choices for different use cases:
 - **High Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
 - **Multilingual**: `intfloat/multilingual-e5-base` (768 dim)
 
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. **Port Already in Use**
+
+**Problem**: `Address already in use` error when starting the service.
+
+**Solution**:
+```bash
+# Find process using port 8000
+lsof -i :8000  # On Linux/Mac
+netstat -ano | findstr :8000  # On Windows
+
+# Kill the process or change the port in .env
+echo "REST_PORT=8001" >> .env
+```
+
+#### 2. **API Key Authentication Fails**
+
+**Problem**: `401 Unauthorized` or `403 Forbidden` errors.
+
+**Solution**:
+```bash
+# Verify your .env file has API_KEYS set
+cat .env | grep API_KEYS
+
+# Make sure you're using the correct format
+echo "API_KEYS=admin:sk-admin-secret123" > .env
+
+# Restart the service after updating
+make run
+```
+
+#### 3. **Module Import Errors**
+
+**Problem**: `ModuleNotFoundError` or `ImportError`.
+
+**Solution**:
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Reinstall dependencies
+pip install -r requirements.txt
+
+# Regenerate proto files
+make proto
+```
+
+#### 4. **Model Download Issues**
+
+**Problem**: Model fails to download or times out.
+
+**Solution**:
+```bash
+# Pre-download the model (requires internet)
+source .venv/bin/activate
+python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')"
+
+# Or use a smaller model
+echo "MODEL_ID=sentence-transformers/all-MiniLM-L6-v2" >> .env
+```
+
+#### 5. **Memory Issues**
+
+**Problem**: Out of memory errors or slow performance.
+
+**Solution**:
+```bash
+# Reduce batch size in .env
+echo "BATCH_SIZE=8" >> .env
+
+# Use a smaller model
+echo "MODEL_ID=sentence-transformers/all-MiniLM-L6-v2" >> .env
+
+# Force CPU mode (uses less memory)
+echo "DEVICE=cpu" >> .env
+```
+
+#### 6. **Tests Failing**
+
+**Problem**: Test failures when running `make test`.
+
+**Solution**:
+```bash
+# Clean VDB test data before running tests
+rm -rf vdb-data/test_* vdb-data/*_test_* vdb-data/*_proj
+
+# Run tests with verbose output
+python3 -m pytest tests/ -v
+
+# Run specific test
+python3 -m pytest tests/test_auth.py -v
+```
+
+#### 7. **Database Lock Issues**
+
+**Problem**: `database is locked` errors.
+
+**Solution**:
+```bash
+# Stop all running instances
+pkill -f "python3 main.py"
+
+# Remove lock files if they exist
+rm -f auth.db-shm auth.db-wal
+
+# Restart the service
+make run
+```
+
+#### 8. **gRPC Connection Errors**
+
+**Problem**: Cannot connect to gRPC server.
+
+**Solution**:
+```bash
+# Verify gRPC port is not blocked
+netstat -tuln | grep 50051
+
+# Check if proto files are generated
+ls -la proto/embeddings_pb2*.py
+
+# Regenerate proto files
+make proto
+```
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. **Check Logs**: Look for detailed error messages in the terminal output
+2. **Enable Debug Logging**: Set `LOG_LEVEL=DEBUG` in your `.env` file
+3. **Search Issues**: Check [GitHub Issues](https://github.com/vitosgeen/embeddings-generator/issues)
+4. **Create Issue**: Open a new issue with:
+   - Error message
+   - Steps to reproduce
+   - Python version (`python3 --version`)
+   - Operating system
+
+---
 
 ## 🗄️ Vector Database API Usage
 

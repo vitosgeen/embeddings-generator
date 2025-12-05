@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
@@ -47,6 +47,17 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request):
         return templates.TemplateResponse("index.html", {"request": request})
+
+    @app.get("/favicon.ico")
+    async def favicon():
+        """Serve a simple favicon to prevent 404 errors."""
+        # Return an SVG favicon with brain emoji
+        svg_favicon = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <text y="75" font-size="75">🧠</text>
+        </svg>
+        """
+        return Response(content=svg_favicon, media_type="image/svg+xml")
 
     @app.get("/health")
     def health():
