@@ -10,6 +10,8 @@ from app.bootstrap import build_usecase, build_vdb_usecases
 from app.bootstrap_auth import bootstrap_auth_database
 from app.adapters.rest.fastapi_app import build_fastapi
 from app.adapters.grpc.server import serve_grpc
+from app.adapters.infra.task_queue import get_task_queue
+from app.adapters.infra.task_handlers import register_default_handlers
 from app.config import REST_PORT, GRPC_PORT
 
 # Server configuration constants
@@ -22,6 +24,13 @@ async def run():
     # Bootstrap authentication database (idempotent)
     logger.info("Bootstrapping authentication database...")
     bootstrap_auth_database()
+    
+    # Initialize task queue and register handlers
+    logger.info("Initializing task queue...")
+    task_queue = get_task_queue()
+    register_default_handlers()
+    task_queue.start_worker()
+    logger.info("Task queue worker started")
     
     # Build embedding service use case
     uc = build_usecase()

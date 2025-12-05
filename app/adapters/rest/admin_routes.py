@@ -198,6 +198,19 @@ def build_admin_router() -> APIRouter:
             "recent_logs": recent_logs,
         })
     
+    @router.get("/tasks", response_class=HTMLResponse)
+    async def tasks_page(
+        request: Request,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Task queue management page."""
+        auth.require_permission("admin:users")
+        
+        return templates.TemplateResponse("admin/tasks.html", {
+            "request": request,
+            "auth": auth,
+        })
+    
     # ========================================================================
     # User Management
     # ========================================================================

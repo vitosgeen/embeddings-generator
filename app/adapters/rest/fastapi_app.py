@@ -10,6 +10,7 @@ from ...domain.auth import AuthContext
 from .auth_middleware import get_current_user, AuthenticationMiddleware
 from .vdb_routes import build_vdb_router
 from .admin_routes import build_admin_router
+from .task_routes import router as task_router
 
 
 class EmbedReq(BaseModel):
@@ -85,5 +86,8 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
     # Include admin UI routes
     admin_router = build_admin_router()
     app.include_router(admin_router)
+    
+    # Include task queue routes
+    app.include_router(task_router)
 
     return app
