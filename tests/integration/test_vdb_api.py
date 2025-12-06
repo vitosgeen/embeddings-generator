@@ -42,18 +42,29 @@ def test_storage_path(setup_vdb_test_environment):
 @pytest.fixture(scope="function")
 def vdb_app(test_storage_path):
     """Create FastAPI app with VDB services for each test."""
-    # Clean up storage between tests
+    # Force clean the storage path completely before each test
     if os.path.exists(test_storage_path):
-        for item in os.listdir(test_storage_path):
-            item_path = os.path.join(test_storage_path, item)
-            if os.path.isdir(item_path):
-                shutil.rmtree(item_path)
-            else:
-                os.remove(item_path)
+        # Remove everything
+        shutil.rmtree(test_storage_path, ignore_errors=True)
+        # Recreate empty directory
+        os.makedirs(test_storage_path, exist_ok=True)
     
-    embedding_uc = build_usecase()
-    vdb_usecases = build_vdb_usecases()
-    app = build_fastapi(embedding_uc, vdb_usecases)
+    # Set environment variable to ensure correct path
+    os.environ["VDB_STORAGE_PATH"] = test_storage_path
+    
+    # Reload config module to pick up new environment variable
+    import importlib
+    from app import config, bootstrap
+    importlib.reload(config)
+    importlib.reload(bootstrap)
+    
+    # Rebuild services with clean storage
+    embedding_uc = bootstrap.build_usecase()
+    vdb_usecases = bootstrap.build_vdb_usecases()
+    
+    from app.adapters.rest import fastapi_app
+    importlib.reload(fastapi_app)
+    app = fastapi_app.build_fastapi(embedding_uc, vdb_usecases)
     return app
 
 
