@@ -1,0 +1,76 @@
+<table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+        <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Granted</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+        <!-- Owner (always listed first) -->
+        <tr class="bg-blue-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <a href="/admin/users/{{ project.owner_user_id }}" class="text-blue-600 hover:text-blue-900">
+                    {% for user, _ in project_users %}
+                        {% if user.id == project.owner_user_id %}
+                            {{ user.username }}
+                        {% endif %}
+                    {% endfor %}
+                </a>
+                <span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                    Owner
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                Project Owner
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {{ project.created_at.strftime('%Y-%m-%d') }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-400">
+                Cannot revoke
+            </td>
+        </tr>
+        
+        <!-- Other users with access -->
+        {% for user, user_project in project_users %}
+            {% if user.id != project.owner_user_id %}
+            <tr id="project-user-{{ user.id }}">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <a href="/admin/users/{{ user.id }}" class="text-blue-600 hover:text-blue-900">
+                        {{ user.username }}
+                    </a>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        {% if user_project.role == 'project-owner' %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ user_project.role }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ user_project.granted_at.strftime('%Y-%m-%d') }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                        hx-post="/admin/projects/{{ project.project_id }}/revoke-access/{{ user.id }}"
+                        hx-confirm="Revoke {{ user.username }}'s access to this project?"
+                        hx-target="#project-user-{{ user.id }}"
+                        hx-swap="outerHTML swap:1s"
+                        class="text-red-600 hover:text-red-900">
+                        Revoke
+                    </button>
+                </td>
+            </tr>
+            {% endif %}
+        {% endfor %}
+        
+        {% if project_users|length == 0 or (project_users|length == 1 and project_users[0][0].id == project.owner_user_id) %}
+        <tr>
+            <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
+                No additional users have access. Click "Grant Access" to add users.
+            </td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>

@@ -71,7 +71,60 @@ run:
 dev: proto run
 
 # -----------------------------
-# � Testing
+# 🛑 Stop services
+# -----------------------------
+
+.PHONY: stop
+stop:
+	@echo "🛑 Stopping services by port..."
+	@echo "Stopping REST API (port 8000)..."
+	@lsof -ti:8000 | xargs -r kill -9 2>/dev/null || echo "  ℹ️  No process on port 8000"
+	@echo "Stopping gRPC server (port 50051)..."
+	@lsof -ti:50051 | xargs -r kill -9 2>/dev/null || echo "  ℹ️  No process on port 50051"
+	@echo "✅ Services stopped."
+
+.PHONY: stop-rest
+stop-rest:
+	@echo "🛑 Stopping REST API (port 8000)..."
+	@lsof -ti:8000 | xargs -r kill -9 2>/dev/null && echo "✅ REST API stopped" || echo "ℹ️  No process on port 8000"
+
+.PHONY: stop-grpc
+stop-grpc:
+	@echo "🛑 Stopping gRPC server (port 50051)..."
+	@lsof -ti:50051 | xargs -r kill -9 2>/dev/null && echo "✅ gRPC server stopped" || echo "ℹ️  No process on port 50051"
+
+.PHONY: ps
+ps:
+	@echo "📋 Checking running services..."
+	@echo "REST API (port 8000):"
+	@lsof -ti:8000 | xargs -r ps -fp 2>/dev/null || echo "  ℹ️  No process running"
+	@echo ""
+	@echo "gRPC server (port 50051):"
+	@lsof -ti:50051 | xargs -r ps -fp 2>/dev/null || echo "  ℹ️  No process running"
+
+# -----------------------------
+# 🗄️ Vector Database
+# -----------------------------
+
+.PHONY: vdb-demo
+vdb-demo:
+	@echo "🎬 Running VDB demo..."
+	@if [ ! -f ".env" ]; then \
+		echo "⚠️  .env file not found. Creating from .env_example..."; \
+		cp .env_example .env; \
+		echo "⚠️  Please edit .env and set your API_KEYS before running the demo!"; \
+		exit 1; \
+	fi
+	./scripts/demo_vdb.sh
+
+.PHONY: vdb-clean
+vdb-clean:
+	@echo "🧹 Cleaning VDB data..."
+	rm -rf ./vdb-data
+	@echo "✅ VDB data cleaned."
+
+# -----------------------------
+# 🧪 Testing
 # -----------------------------
 
 .PHONY: test

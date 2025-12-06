@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+    
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ stats.total_users }}</dd>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Active Users</dt>
+                <dd class="mt-1 text-3xl font-semibold text-green-600">{{ stats.active_users }}</dd>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Total API Keys</dt>
+                <dd class="mt-1 text-3xl font-semibold text-gray-900">{{ stats.total_keys }}</dd>
+            </div>
+        </div>
+        
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <dt class="text-sm font-medium text-gray-500 truncate">Active Keys</dt>
+                <dd class="mt-1 text-3xl font-semibold text-green-600">{{ stats.active_keys }}</dd>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Activity</h3>
+        </div>
+        <div class="border-t border-gray-200">
+            <ul class="divide-y divide-gray-200">
+                {% for log in recent_logs %}
+                <li class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">
+                                {{ log.action }}
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                User ID: {{ log.user_id }} • Status: 
+                                <span class="{% if log.status == 'success' %}text-green-600{% else %}text-red-600{% endif %}">
+                                    {{ log.status }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <p class="text-sm text-gray-500">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

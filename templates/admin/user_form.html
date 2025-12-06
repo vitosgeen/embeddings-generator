@@ -1,0 +1,66 @@
+<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+        {% if user %}Edit User{% else %}Create New User{% endif %}
+    </h3>
+    
+    {% if error %}
+    <div class="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+        {{ error }}
+    </div>
+    {% endif %}
+    
+    <form 
+        hx-post="/admin/users" 
+        hx-target="#users-tbody" 
+        hx-swap="afterbegin"
+        hx-on::after-request="if(event.detail.successful) document.getElementById('modal').classList.add('hidden')">
+        
+        <div class="mb-4">
+            <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+            <input 
+                type="text" 
+                name="username" 
+                id="username" 
+                required
+                value="{% if user %}{{ user.username }}{% endif %}"
+                class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+        </div>
+        
+        <div class="mb-4">
+            <label for="email" class="block text-sm font-medium text-gray-700">Email (optional)</label>
+            <input 
+                type="email" 
+                name="email" 
+                id="email"
+                value="{% if user %}{{ user.email }}{% endif %}"
+                class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+        </div>
+        
+        <div class="mb-4">
+            <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
+            <select 
+                name="role" 
+                id="role" 
+                required
+                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                {% for r in roles %}
+                <option value="{{ r }}" {% if user and user.role == r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button 
+                type="submit" 
+                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                {% if user %}Update{% else %}Create{% endif %}
+            </button>
+            <button 
+                type="button" 
+                onclick="document.getElementById('modal').classList.add('hidden')"
+                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>

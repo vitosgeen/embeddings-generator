@@ -8,21 +8,9 @@ from fastapi.testclient import TestClient
 
 from app.adapters.rest.fastapi_app import build_fastapi
 from app.usecases.generate_embedding import GenerateEmbeddingUC
-from app.auth import get_current_user
+from app.adapters.rest.auth_middleware import get_current_user
+from app.domain.auth import AuthContext
 from tests.conftest import MockEncoder
-
-
-# Test API keys for integration tests
-TEST_API_KEYS = {
-    "sk-test-integration-123": "test_user",
-    "sk-test-admin-456": "admin"
-}
-TEST_VALID_API_KEYS = set(TEST_API_KEYS.keys())
-
-
-def mock_get_current_user(*args, **kwargs):
-    """Mock authentication function that always returns test_user."""
-    return "test_user"
 
 
 class TestFastAPIIntegration:
@@ -37,18 +25,25 @@ class TestFastAPIIntegration:
     @pytest.fixture
     def client(self, use_case):
         """Create a test client for the FastAPI app."""
-        # Mock the dependency to return a test user without authentication
+        # Mock the dependency to return a test AuthContext
         def override_auth():
-            return "test_user"
+            return AuthContext(
+                user_id=1,
+                username="test_user",
+                role="admin",
+                permissions=["all"],
+                accessible_projects=[],
+                api_key_id="sk-test-123"
+            )
         
         app = build_fastapi(use_case)
         app.dependency_overrides[get_current_user] = override_auth
         return TestClient(app)
 
     @pytest.fixture
-    def auth_headers(self):
+    def auth_headers(self, admin_auth_headers):
         """Provide authentication headers for testing."""
-        return {"Authorization": "Bearer sk-test-integration-123"}
+        return admin_auth_headers
 
     def test_health_endpoint(self, client):
         """Test the health check endpoint."""

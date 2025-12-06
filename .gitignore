@@ -175,6 +175,9 @@ transformers/
 *.safetensors
 models/
 
+# Vector Database storage
+vdb-data/
+
 # Docker
 .dockerignore
 
@@ -197,3 +200,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# db files
+*.db
+*.sqlite3

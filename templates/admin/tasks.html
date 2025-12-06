@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Queue - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        let refreshInterval;
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/tasks/stats/queue');
+                const stats = await response.json();
+                
+                document.getElementById('total').textContent = stats.total;
+                document.getElementById('pending').textContent = stats.pending;
+                document.getElementById('running').textContent = stats.running;
+                document.getElementById('completed').textContent = stats.completed;
+                document.getElementById('failed').textContent = stats.failed;
+                document.getElementById('worker-status').textContent = stats.worker_running ? '✅ Running' : '❌ Stopped';
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function loadTasks(status = null) {
+            try {
+                const url = status ? `/tasks/?status=${status}` : '/tasks/';
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const tbody = document.getElementById('tasks-tbody');
+                tbody.innerHTML = '';
+                
+                if (data.tasks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No tasks found</td></tr>';
+                    return;
+                }
+                
+                data.tasks.forEach(task => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50';
+                    
+                    const statusColors = {
+                        'pending': 'bg-yellow-100 text-yellow-800',
+                        'running': 'bg-blue-100 text-blue-800',
+                        'completed': 'bg-green-100 text-green-800',
+                        'failed': 'bg-red-100 text-red-800',
+                        'cancelled': 'bg-gray-100 text-gray-800'
+                    };
+                    
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                            ${task.id.substring(0, 8)}...
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${task.name}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${task.task_type}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full ${statusColors[task.status] || 'bg-gray-100 text-gray-800'}">
+                                ${task.status}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex items-center">
+                                <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${task.progress}%"></div>
+                                </div>
+                                <span>${task.progress}%</span>
+                            </div>
+                            ${task.progress_message ? `<div class="text-xs text-gray-400 mt-1">${task.progress_message}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${new Date(task.created_at).toLocaleString()}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <button onclick="viewTask('${task.id}')" class="text-blue-600 hover:text-blue-900 mr-2">View</button>
+                            ${task.status === 'pending' ? `<button onclick="cancelTask('${task.id}')" class="text-red-600 hover:text-red-900">Cancel</button>` : ''}
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+        
+        async function viewTask(taskId) {
+            try {
+                const response = await fetch(`/tasks/${taskId}`);
+                const task = await response.json();
+                
+                const modal = document.getElementById('task-modal');
+                const details = document.getElementById('task-details');
+                
+                details.innerHTML = `
+                    <div class="space-y-3">
+                        <div><strong>ID:</strong> ${task.id}</div>
+                        <div><strong>Name:</strong> ${task.name}</div>
+                        <div><strong>Type:</strong> ${task.task_type}</div>
+                        <div><strong>Status:</strong> ${task.status}</div>
+                        <div><strong>Progress:</strong> ${task.progress}% ${task.progress_message ? `(${task.progress_message})` : ''}</div>
+                        <div><strong>Priority:</strong> ${task.priority}</div>
+                        <div><strong>Created by:</strong> ${task.created_by || 'N/A'}</div>
+                        <div><strong>Created at:</strong> ${new Date(task.created_at).toLocaleString()}</div>
+                        ${task.started_at ? `<div><strong>Started at:</strong> ${new Date(task.started_at).toLocaleString()}</div>` : ''}
+                        ${task.completed_at ? `<div><strong>Completed at:</strong> ${new Date(task.completed_at).toLocaleString()}</div>` : ''}
+                        <div><strong>Retries:</strong> ${task.retry_count}/${task.max_retries}</div>
+                        ${task.error_message ? `<div class="text-red-600"><strong>Error:</strong> ${task.error_message}</div>` : ''}
+                        ${task.params ? `<div><strong>Parameters:</strong><pre class="bg-gray-100 p-2 rounded mt-1 text-xs overflow-auto">${JSON.stringify(task.params, null, 2)}</pre></div>` : ''}
+                        ${task.result ? `<div><strong>Result:</strong><pre class="bg-gray-100 p-2 rounded mt-1 text-xs overflow-auto">${JSON.stringify(task.result, null, 2)}</pre></div>` : ''}
+                    </div>
+                `;
+                
+                modal.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error viewing task:', error);
+                alert('Failed to load task details');
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('task-modal').classList.add('hidden');
+        }
+        
+        async function cancelTask(taskId) {
+            if (!confirm('Are you sure you want to cancel this task?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('Task cancelled successfully');
+                    loadTasks();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to cancel task: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Error cancelling task:', error);
+                alert('Failed to cancel task');
+            }
+        }
+        
+        function filterTasks(status) {
+            loadTasks(status);
+            
+            // Update button styles
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            
+            const activeBtn = document.querySelector(`[data-filter="${status || 'all'}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                activeBtn.classList.add('bg-blue-600', 'text-white');
+            }
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('auto-refresh');
+            
+            if (checkbox.checked) {
+                refreshInterval = setInterval(() => {
+                    loadStats();
+                    const activeFilter = document.querySelector('[data-filter].bg-blue-600');
+                    const status = activeFilter ? activeFilter.dataset.filter : null;
+                    loadTasks(status === 'all' ? null : status);
+                }, 3000);
+            } else {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                }
+            }
+        }
+        
+        window.onload = () => {
+            loadStats();
+            loadTasks();
+            document.getElementById('auto-refresh').checked = true;
+            toggleAutoRefresh();
+        };
+    </script>
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-7xl mx-auto py-6 px-4">
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Task Queue</h1>
+            <p class="text-gray-600">Monitor and manage background tasks</p>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Total</div>
+                <div id="total" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-yellow-50 p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Pending</div>
+                <div id="pending" class="text-2xl font-bold text-yellow-600">-</div>
+            </div>
+            <div class="bg-blue-50 p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Running</div>
+                <div id="running" class="text-2xl font-bold text-blue-600">-</div>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Completed</div>
+                <div id="completed" class="text-2xl font-bold text-green-600">-</div>
+            </div>
+            <div class="bg-red-50 p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Failed</div>
+                <div id="failed" class="text-2xl font-bold text-red-600">-</div>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg shadow">
+                <div class="text-sm text-gray-600">Worker</div>
+                <div id="worker-status" class="text-sm font-bold">-</div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="bg-white p-4 rounded-lg shadow mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex space-x-2">
+                    <button data-filter="all" onclick="filterTasks(null)" class="px-4 py-2 rounded bg-blue-600 text-white">All</button>
+                    <button data-filter="pending" onclick="filterTasks('pending')" class="px-4 py-2 rounded bg-gray-200 text-gray-700">Pending</button>
+                    <button data-filter="running" onclick="filterTasks('running')" class="px-4 py-2 rounded bg-gray-200 text-gray-700">Running</button>
+                    <button data-filter="completed" onclick="filterTasks('completed')" class="px-4 py-2 rounded bg-gray-200 text-gray-700">Completed</button>
+                    <button data-filter="failed" onclick="filterTasks('failed')" class="px-4 py-2 rounded bg-gray-200 text-gray-700">Failed</button>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()" class="mr-2">
+                    <label for="auto-refresh" class="text-sm text-gray-600">Auto-refresh (3s)</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tasks Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tasks-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <a href="/admin/" class="text-blue-600 hover:text-blue-900">← Back to Admin Dashboard</a>
+        </div>
+    </div>
+    
+    <!-- Task Details Modal -->
+    <div id="task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-screen overflow-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">Task Details</h2>
+                    <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="task-details" class="text-sm">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

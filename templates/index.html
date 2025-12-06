@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🧠 Embeddings Service</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml">
     <style>
         * {
             margin: 0;
@@ -126,6 +127,44 @@
             margin-top: 2rem;
         }
         
+        .login-links {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .login-btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .login-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .login-btn.admin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .login-btn.user {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -138,26 +177,62 @@
             .main-content {
                 padding: 1.5rem;
             }
+            
+            .login-links {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .login-btn {
+                width: 100%;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🧠 Embeddings Service</h1>
-            <p>REST + gRPC microservice for generating text embeddings using Sentence Transformers</p>
+            <h1>🧠 Embeddings + Vector Database Service</h1>
+            <p>Unified REST microservice for text embeddings and vector storage with LanceDB</p>
             <div style="margin-top: 1rem;">
                 <span class="status-indicator status-loading" id="status"></span>
                 <span id="status-text">Checking service status...</span>
             </div>
+            
+            <div class="login-links">
+                <a href="/admin/login" class="login-btn admin">
+                    🔐 Admin Login
+                </a>
+                <a href="/admin/login" class="login-btn user">
+                    👤 User Login
+                </a>
+            </div>
         </div>
         
         <div class="main-content">
+            <!-- API Key Configuration -->
+            <div class="card" style="margin-bottom: 2rem; border-left-color: #28a745;">
+                <h3>🔑 Quick API Test</h3>
+                <p style="margin-bottom: 1rem;">Enter your API key to quickly test the service or visit <a href="/user-docs" style="color: #667eea;">📚 Full Documentation</a> for interactive testing.</p>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="password" id="quickApiKey" placeholder="sk-your-api-key-here" 
+                           style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem;" />
+                    <button onclick="saveQuickApiKey()" 
+                            style="padding: 0.75rem 1.5rem; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        Save Key
+                    </button>
+                    <span id="quickKeyStatus" style="padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; background: #f8d7da; color: #721c24;">
+                        Not Set
+                    </span>
+                </div>
+            </div>
+            
             <h2>🚀 About This Service</h2>
             <p>
-                This lightweight microservice generates high-quality text embeddings using state-of-the-art 
-                Sentence Transformer models. It's designed for easy integration into ML pipelines, search systems, 
-                and recommendation engines.
+                This unified microservice provides two powerful capabilities: generating high-quality text embeddings 
+                using Sentence Transformers and storing/searching vectors in a scalable LanceDB database. 
+                Perfect for semantic search, RAG systems, recommendation engines, and ML pipelines.
             </p>
             
             <div class="grid">
@@ -165,9 +240,11 @@
                     <h3>🎯 Features</h3>
                     <ul>
                         <li>High-quality text embeddings</li>
-                        <li>Batch processing support</li>
+                        <li>Vector database with LanceDB</li>
+                        <li>Semantic search capabilities</li>
+                        <li>Multi-tenant project isolation</li>
+                        <li>Automatic sharding for scale</li>
                         <li>REST and gRPC interfaces</li>
-                        <li>Configurable models and devices</li>
                         <li>Production-ready architecture</li>
                     </ul>
                 </div>
@@ -179,6 +256,7 @@
                         <li>FastAPI for REST API</li>
                         <li>gRPC for high-performance calls</li>
                         <li>Sentence Transformers</li>
+                        <li>LanceDB vector database</li>
                         <li>PyTorch backend</li>
                     </ul>
                 </div>
@@ -195,6 +273,8 @@
             </div>
             
             <h2>🌐 API Endpoints</h2>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">📝 Embeddings Service</h3>
             <div class="endpoints">
                 <div class="endpoint">
                     <span class="method get">GET</span>
@@ -206,11 +286,51 @@
                 </div>
                 <div class="endpoint">
                     <span class="method post">POST</span>
-                    <strong>/embed</strong> - Generate embeddings for text(s)
+                    <strong>/embed</strong> - Generate embeddings for text(s) 🔐
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">🗄️ Vector Database Service</h3>
+            <div class="endpoints">
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/projects</strong> - Create a new project 🔐
                 </div>
                 <div class="endpoint">
                     <span class="method get">GET</span>
+                    <strong>/vdb/projects</strong> - List all projects 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/projects/{project_id}/collections</strong> - Create a collection 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <strong>/vdb/projects/{project_id}/collections</strong> - List collections 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/vectors</strong> - Add vector to collection 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/search</strong> - Search similar vectors 🔐
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/vdb/vectors/delete</strong> - Delete vector by ID 🔐
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 1.5rem; color: #667eea;">📚 Documentation</h3>
+            <div class="endpoints">
+                <div class="endpoint">
+                    <span class="method get">GET</span>
                     <strong>/docs</strong> - Interactive API documentation (Swagger UI)
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <strong>/redoc</strong> - Alternative API documentation (ReDoc)
                 </div>
             </div>
             
@@ -218,11 +338,13 @@
             
             <div class="card" style="margin-bottom: 1.5rem; background: #fff3cd; border-left: 4px solid #856404;">
                 <h3 style="color: #856404;">🔐 Authentication Required</h3>
-                <p>The <code>/embed</code> endpoint requires authentication using Bearer tokens (API keys). Contact your administrator for API keys.</p>
+                <p>All endpoints (except <code>/</code>, <code>/health</code>, <code>/docs</code>) require Bearer token authentication.</p>
                 <p><strong>Available accounts:</strong> admin, user1, app1, monitoring</p>
             </div>
             
-            <h3>Single Text Embedding (Authenticated)</h3>
+            <h3>🧠 Embeddings Service Examples</h3>
+            
+            <h4 style="margin-top: 1rem;">Single Text Embedding</h4>
             <div class="code-block">
 curl -X POST "{{ base_url }}/embed" \
   -H "Content-Type: application/json" \
@@ -249,6 +371,88 @@ curl -X POST "{{ base_url }}/embed" \
   }'
             </div>
             
+            <h3 style="margin-top: 2rem;">🗄️ Vector Database Service Examples</h3>
+            
+            <h4 style="margin-top: 1rem;">1. Create a Project</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/projects" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app"
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">2. Create a Collection</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/projects/my-rag-app/collections" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "collection_name": "documents",
+    "dimension": 768,
+    "distance_metric": "cosine"
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">3. Add Vectors</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/vectors" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app",
+    "collection_name": "documents",
+    "vector_id": "doc-1",
+    "vector": [0.1, 0.2, 0.3, ...],
+    "metadata": {"title": "AI Overview", "page": 1}
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">4. Search Vectors</h4>
+            <div class="code-block">
+curl -X POST "{{ base_url }}/vdb/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "project_id": "my-rag-app",
+    "collection_name": "documents",
+    "query_vector": [0.1, 0.2, 0.3, ...],
+    "top_k": 5
+  }'
+            </div>
+            
+            <h4 style="margin-top: 1rem;">5. Complete RAG Workflow (Generate + Store + Search)</h4>
+            <div class="code-block">
+# 1. Generate embedding
+EMBEDDING=$(curl -X POST "{{ base_url }}/embed" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{"text": "What is AI?"}' | jq -r '.embedding')
+
+# 2. Store in VDB
+curl -X POST "{{ base_url }}/vdb/vectors" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d "{
+    \"project_id\": \"my-rag-app\",
+    \"collection_name\": \"documents\",
+    \"vector_id\": \"query-1\",
+    \"vector\": $EMBEDDING
+  }"
+
+# 3. Search similar vectors
+curl -X POST "{{ base_url }}/vdb/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d "{
+    \"project_id\": \"my-rag-app\",
+    \"collection_name\": \"documents\",
+    \"query_vector\": $EMBEDDING,
+    \"top_k\": 3
+  }"
+            </div>
+            
             <h3>Health Check (Public)</h3>
             <div class="code-block">
 curl -X GET "{{ base_url }}/health"
@@ -256,19 +460,51 @@ curl -X GET "{{ base_url }}/health"
             
             <h3>Example Response with Authentication</h3>
             <div class="code-block">
+# Embeddings response
 {
   "model_id": "BAAI/bge-base-en-v1.5",
   "dim": 768,
   "embedding": [0.1234, -0.5678, ...],
   "requested_by": "admin"
 }
+
+# VDB search response
+{
+  "results": [
+    {
+      "vector_id": "doc-1",
+      "score": 0.95,
+      "metadata": {"title": "AI Overview", "page": 1}
+    },
+    {
+      "vector_id": "doc-3",
+      "score": 0.87,
+      "metadata": {"title": "ML Basics", "page": 5}
+    }
+  ]
+}
+            </div>
+            
+            <div class="card" style="margin-top: 2rem; background: #d1ecf1; border-left: 4px solid #0c5460;">
+                <h3 style="color: #0c5460;">💡 VDB Service Features</h3>
+                <ul>
+                    <li><strong>Multi-tenant:</strong> Isolate data per project</li>
+                    <li><strong>Auto-sharding:</strong> Automatically distributes vectors across shards</li>
+                    <li><strong>Distance metrics:</strong> Cosine, L2, and Dot Product</li>
+                    <li><strong>Metadata:</strong> Store arbitrary JSON metadata with vectors</li>
+                    <li><strong>Persistence:</strong> Data persists across restarts</li>
+                    <li><strong>Scalable:</strong> LanceDB handles billions of vectors</li>
+                </ul>
             </div>
         </div>
         
         <div class="footer">
             <p>
                 🔗 <a href="/docs" style="color: white;">Interactive API Docs</a> | 
+                📚 <a href="/user-docs" style="color: white;">User Documentation</a> | 
+                📥 <a href="/postman-collection" style="color: white;">Download Postman Collection</a> | 
                 📋 <a href="/health" style="color: white;">Health Check</a> |
+                🗄️ Vector Database with LanceDB |
                 🧠 Powered by Sentence Transformers
             </p>
         </div>
@@ -280,34 +516,87 @@ curl -X GET "{{ base_url }}/health"
         
         // Update base URL in code examples
         document.querySelectorAll('.code-block').forEach(block => {
-            block.innerHTML = block.innerHTML.replace(/{{ base_url }}/g, baseUrl);
+            block.innerHTML = block.innerHTML.replace(/\{\{ base_url \}\}/g, baseUrl);
         });
         
         // Check service health and update status
-        fetch('/health')
-            .then(response => response.json())
-            .then(data => {
+        async function checkServiceHealth() {
+            try {
+                const response = await fetch('/health');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
                 const statusIndicator = document.getElementById('status');
                 const statusText = document.getElementById('status-text');
                 
+                // Update status to online
                 statusIndicator.className = 'status-indicator status-online';
-                statusText.textContent = 'Service is online and ready';
+                statusText.textContent = 'Service is online and ready ✓';
                 
                 // Update model information
                 document.getElementById('model-id').textContent = data.model_id || 'N/A';
                 document.getElementById('device').textContent = data.device || 'N/A';
                 document.getElementById('dimensions').textContent = data.dim || 'N/A';
                 document.getElementById('batch-size').textContent = data.batch_size || 'N/A';
-            })
-            .catch(error => {
+                
+                console.log('Service health check successful:', data);
+            } catch (error) {
                 console.error('Error fetching health data:', error);
                 const statusIndicator = document.getElementById('status');
                 const statusText = document.getElementById('status-text');
                 
+                // Update status to offline
                 statusIndicator.className = 'status-indicator';
                 statusIndicator.style.background = '#dc3545';
-                statusText.textContent = 'Service unavailable';
-            });
+                statusText.textContent = 'Service unavailable ✗';
+                
+                // Set model info to error state
+                document.getElementById('model-id').textContent = 'Error';
+                document.getElementById('device').textContent = 'Error';
+                document.getElementById('dimensions').textContent = 'Error';
+                document.getElementById('batch-size').textContent = 'Error';
+            }
+        }
+        
+        // Run health check on page load
+        checkServiceHealth();
+        
+        // Optional: Refresh health status every 30 seconds
+        setInterval(checkServiceHealth, 30000);
+        
+        // Quick API Key management
+        function saveQuickApiKey() {
+            const apiKey = document.getElementById('quickApiKey').value.trim();
+            if (apiKey) {
+                localStorage.setItem('api_key', apiKey);
+                document.getElementById('quickKeyStatus').textContent = 'Saved ✓';
+                document.getElementById('quickKeyStatus').style.background = '#d4edda';
+                document.getElementById('quickKeyStatus').style.color = '#155724';
+                
+                // Update code examples with the key
+                document.querySelectorAll('.code-block').forEach(block => {
+                    if (block.textContent.includes('Authorization:')) {
+                        block.innerHTML = block.innerHTML.replace(
+                            /Bearer sk-[a-zA-Z0-9-]+/g,
+                            `Bearer ${apiKey}`
+                        );
+                    }
+                });
+            } else {
+                alert('Please enter an API key');
+            }
+        }
+        
+        // Load saved API key on page load
+        const savedApiKey = localStorage.getItem('api_key');
+        if (savedApiKey) {
+            document.getElementById('quickApiKey').value = savedApiKey;
+            document.getElementById('quickKeyStatus').textContent = 'Saved ✓';
+            document.getElementById('quickKeyStatus').style.background = '#d4edda';
+            document.getElementById('quickKeyStatus').style.color = '#155724';
+        }
     </script>
 </body>
 </html>
