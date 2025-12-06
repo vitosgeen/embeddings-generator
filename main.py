@@ -33,7 +33,7 @@ async def run():
     logger.info("Task queue worker started")
     
     # Build multi-model embedding service use case
-    logger.info("Loading embedding models (fast + thinking)...")
+    logger.info("Loading embedding models (fast: e5-base, thinking: e5-large)...")
     uc = build_multi_model_usecase()
     logger.info("Models loaded successfully")
     

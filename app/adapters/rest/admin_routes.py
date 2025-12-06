@@ -97,9 +97,14 @@ def build_admin_router() -> APIRouter:
     @router.get("/login", response_class=HTMLResponse)
     async def login_page(request: Request, error: Optional[str] = None):
         """Display login page."""
+        from ... import config
         return templates.TemplateResponse("admin/login.html", {
             "request": request,
-            "error": error
+            "error": error,
+            "config": {
+                "DEBUG": config.DEBUG,
+                "SHOW_DEFAULT_CREDENTIALS": config.SHOW_DEFAULT_CREDENTIALS
+            }
         })
     
     @router.post("/login")

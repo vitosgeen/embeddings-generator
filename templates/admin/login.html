@@ -49,10 +49,13 @@
                 </div>
             </form>
             
+            {% if config.get('DEBUG', False) or config.get('SHOW_DEFAULT_CREDENTIALS', False) %}
             <div class="text-center text-sm text-gray-600">
-                <p>Default credentials:</p>
+                <p>⚠️ Development Mode - Default credentials:</p>
                 <p class="font-mono text-xs mt-1">Username: admin | Password: admin123</p>
+                <p class="text-xs text-red-600 mt-1">Change these in production!</p>
             </div>
+            {% endif %}
         </div>
     </div>
 </body>
