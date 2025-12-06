@@ -257,7 +257,7 @@ nano .env  # or use your preferred editor
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `MODEL_ID` | Sentence Transformer model from Hugging Face | `BAAI/bge-base-en-v1.5` | `sentence-transformers/all-MiniLM-L6-v2` |
+| `MODEL_ID` | Sentence Transformer model from Hugging Face | `intfloat/multilingual-e5-base` | `BAAI/bge-base-en-v1.5` |
 | `DEVICE` | Processing device (auto/cpu/cuda/mps) | `auto` | `cuda` |
 | `BATCH_SIZE` | Batch size for processing | `32` | `64` |
 | `REST_PORT` | REST API port | `8000` | `8080` |
@@ -324,10 +324,11 @@ ADMIN_PASSWORD=your-secure-password-here
 
 Popular model choices for different use cases:
 
-- **General Purpose**: `BAAI/bge-base-en-v1.5` (768 dim, high quality)
-- **Fast & Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim)
-- **High Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
-- **Multilingual**: `intfloat/multilingual-e5-base` (768 dim)
+- **Multilingual (Default)**: `intfloat/multilingual-e5-base` (768 dim, 100+ languages)
+- **English High Quality**: `BAAI/bge-base-en-v1.5` (768 dim, English only)
+- **Fast & Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim, English)
+- **English Best Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
+- **Multilingual Large**: `intfloat/multilingual-e5-large` (1024 dim, best quality)
 
 ---
 
@@ -389,9 +390,9 @@ make proto
 ```bash
 # Pre-download the model (requires internet)
 source .venv/bin/activate
-python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')"
+python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
 
-# Or use a smaller model
+# Or use a smaller/faster model
 echo "MODEL_ID=sentence-transformers/all-MiniLM-L6-v2" >> .env
 ```
 

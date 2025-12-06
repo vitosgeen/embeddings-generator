@@ -2,7 +2,7 @@ import os
 from typing import Dict, Set
 
 # Default configuration values
-DEFAULT_MODEL_ID = "BAAI/bge-base-en-v1.5"
+DEFAULT_MODEL_ID = "intfloat/multilingual-e5-base"
 DEFAULT_DEVICE = "auto"
 DEFAULT_BATCH_SIZE = "32"
 DEFAULT_REST_PORT = "8000" 
