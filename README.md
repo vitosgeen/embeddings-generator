@@ -107,7 +107,8 @@ API_KEYS=admin:sk-admin-secret123,user:sk-user-secret456
 ADMIN_PASSWORD=admin123
 
 # Optional configurations (defaults shown)
-MODEL_ID=BAAI/bge-base-en-v1.5  # Embedding model
+MODEL_FAST=intfloat/multilingual-e5-base    # Fast model for quick responses
+MODEL_THINKING=intfloat/multilingual-e5-large  # Thinking model for deep analysis
 DEVICE=auto                      # Device: auto/cpu/cuda/mps
 REST_PORT=8000                   # REST API port
 GRPC_PORT=50051                  # gRPC port
@@ -169,12 +170,27 @@ curl -X POST http://localhost:8000/embed \
 **Expected response:**
 ```json
 {
-  "model_id": "BAAI/bge-base-en-v1.5",
+  "model_id": "intfloat/multilingual-e5-base",
   "dim": 768,
   "embedding": [0.123, -0.456, ...],
   "requested_by": "admin",
   "user_role": "admin"
 }
+```
+
+**Using different models:**
+```bash
+# Fast model (default) - for chat/support
+curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-secret123" \
+  -d '{"text": "Quick question?", "model": "fast"}'
+
+# Thinking model - for long documents
+curl -X POST http://localhost:8000/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-secret123" \
+  -d '{"text": "Long document...", "model": "thinking"}'
 ```
 
 **Interactive API Testing:**
@@ -256,8 +272,9 @@ nano .env  # or use your preferred editor
 ### 🔧 Key Configuration Options
 
 | Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `MODEL_ID` | Sentence Transformer model from Hugging Face | `intfloat/multilingual-e5-base` | `BAAI/bge-base-en-v1.5` |
+|----------|-------------|---------|---------||
+| `MODEL_FAST` | Fast model for quick responses (chat, support) | `intfloat/multilingual-e5-base` | `BAAI/bge-base-en-v1.5` |
+| `MODEL_THINKING` | Thinking model for deep analysis (documents) | `intfloat/multilingual-e5-large` | `BAAI/bge-m3` |
 | `DEVICE` | Processing device (auto/cpu/cuda/mps) | `auto` | `cuda` |
 | `BATCH_SIZE` | Batch size for processing | `32` | `64` |
 | `REST_PORT` | REST API port | `8000` | `8080` |

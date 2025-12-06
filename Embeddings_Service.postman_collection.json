@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "embeddings-service-collection",
 		"name": "Embeddings Service API",
-		"description": "Complete API collection for the Embeddings Service with REST endpoints for generating embeddings and managing vector database.",
+		"description": "Complete API collection for the Embeddings Service with REST endpoints for generating embeddings and managing vector database.\\n\\n**Dual-Model Architecture:**\\n- **fast** (intfloat/multilingual-e5-base, 768 dims): Quick responses for chat, support bots, short messages\\n- **thinking** (intfloat/multilingual-e5-large, 1024 dims): Deep analysis for long documents, emails, articles\\n\\nUse the `model` parameter in requests to select: `{\\\"model\\\": \\\"fast\\\"}` or `{\\\"model\\\": \\\"thinking\\\"}`",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -93,7 +93,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"text\": \"Artificial intelligence is transforming technology\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+							"raw": "{\n  \"text\": \"Artificial intelligence is transforming technology\",\n  \"model\": \"fast\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/embed",
@@ -116,7 +116,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"texts\": [\n    \"Machine learning is a subset of AI\",\n    \"Deep learning uses neural networks\",\n    \"Natural language processing handles text\"\n  ],\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+							"raw": "{\n  \"texts\": [\n    \"Machine learning is a subset of AI\",\n    \"Deep learning uses neural networks\",\n    \"Natural language processing handles text\"\n  ],\n  \"model\": \"fast\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/embed",
@@ -124,6 +124,29 @@
 							"path": ["embed"]
 						},
 						"description": "Generate embeddings for multiple texts in a single request"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate with Thinking Model",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"This is a comprehensive analysis of machine learning algorithms and their applications in modern data science. The field has evolved significantly over the past decade, with deep learning emerging as a dominant paradigm for solving complex pattern recognition tasks.\",\n  \"model\": \"thinking\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/embed",
+							"host": ["{{base_url}}"],
+							"path": ["embed"]
+						},
+						"description": "Use the 'thinking' model (1024 dims) for deep analysis of longer documents, emails, and articles. Better for semantic understanding of complex content."
 					},
 					"response": []
 				},
@@ -139,7 +162,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"text\": \"This is a very long document that needs to be split into multiple chunks for processing. The service will automatically handle the chunking and combine the embeddings using your chosen method. This is useful for documents that exceed the model's maximum token limit.\",\n  \"auto_chunk\": true,\n  \"chunk_size\": 2000,\n  \"combine_method\": \"average\",\n  \"return_chunks\": true,\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+							"raw": "{\n  \"text\": \"This is a very long document that needs to be split into multiple chunks for processing. The service will automatically handle the chunking and combine the embeddings using your chosen method. This is useful for documents that exceed the model's maximum token limit.\",\n  \"model\": \"thinking\",\n  \"auto_chunk\": true,\n  \"chunk_size\": 2000,\n  \"combine_method\": \"average\",\n  \"return_chunks\": true,\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/embed",

@@ -343,17 +343,25 @@
             
             <!-- Embeddings Tab -->
             <div id="embed-tab" class="tab-content active">
+                <div class="info-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <h3 style="margin-top: 0; color: white;">🧠 Dual-Model Architecture</h3>
+                    <p style="margin: 0.5rem 0;"><strong>fast</strong> (768 dims): Quick responses for chat, support bots, and short messages</p>
+                    <p style="margin: 0.5rem 0;"><strong>thinking</strong> (1024 dims): Deep analysis for long documents, emails, and articles</p>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">Use the <code style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.4rem; border-radius: 3px;">"model": "fast"</code> or <code style="background: rgba(255,255,255,0.2); padding: 0.2rem 0.4rem; border-radius: 3px;">"model": "thinking"</code> parameter in your requests.</p>
+                </div>
+                
                 <div class="test-section">
                     <h3>Generate Text Embedding</h3>
                     <p><span class="method post">POST</span> <code>/embed</code> - Convert text to vector embeddings</p>
                     
                     <div class="curl-example">
-                        <h4>cURL Example:</h4>
+                        <h4>cURL Example (Fast Model):</h4>
                         <pre><code id="embedCurl">curl -X POST http://localhost:8000/embed \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "text": "Hello, this is a test document",
+    "model": "fast",
     "task_type": "passage",
     "normalize": true
   }'</code></pre>
@@ -569,10 +577,11 @@
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "texts": [
-      "First document text",
-      "Second document text",
-      "Third document text"
+      "First document",
+      "Second document",
+      "Third document"
     ],
+    "model": "fast",
     "task_type": "passage",
     "normalize": true
   }'</code></pre>
@@ -704,6 +713,7 @@ Natural language processing handles text data.</textarea>
             
             const result = await makeRequest('/embed', 'POST', {
                 text,
+                model: 'fast',
                 task_type: taskType,
                 normalize
             });
@@ -717,6 +727,7 @@ Natural language processing handles text data.</textarea>
             
             const result = await makeRequest('/embed', 'POST', {
                 text,
+                model: 'thinking',
                 auto_chunk: true,
                 chunk_size: 2000,
                 combine_method: method,
