@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from app.bootstrap import build_usecase, build_vdb_usecases
+from app.bootstrap import build_usecase, build_multi_model_usecase, build_vdb_usecases
 from app.bootstrap_auth import bootstrap_auth_database
 from app.adapters.rest.fastapi_app import build_fastapi
 from app.adapters.grpc.server import serve_grpc
@@ -32,8 +32,10 @@ async def run():
     task_queue.start_worker()
     logger.info("Task queue worker started")
     
-    # Build embedding service use case
-    uc = build_usecase()
+    # Build multi-model embedding service use case
+    logger.info("Loading embedding models (fast + thinking)...")
+    uc = build_multi_model_usecase()
+    logger.info("Models loaded successfully")
     
     # Build VDB use cases
     vdb_usecases = build_vdb_usecases()

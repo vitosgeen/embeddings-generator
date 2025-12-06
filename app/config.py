@@ -1,8 +1,19 @@
 import os
 from typing import Dict, Set
 
+# Model configurations
+MODEL_FAST = "intfloat/multilingual-e5-base"  # 768 dims, quick responses
+MODEL_THINKING = "intfloat/multilingual-e5-large"  # 1024 dims, deep analysis
+
+# Model aliases
+MODEL_ALIASES = {
+    "fast": MODEL_FAST,
+    "thinking": MODEL_THINKING,
+    "default": MODEL_FAST,
+}
+
 # Default configuration values
-DEFAULT_MODEL_ID = "intfloat/multilingual-e5-base"
+DEFAULT_MODEL_ID = MODEL_FAST
 DEFAULT_DEVICE = "auto"
 DEFAULT_BATCH_SIZE = "32"
 DEFAULT_REST_PORT = "8000" 

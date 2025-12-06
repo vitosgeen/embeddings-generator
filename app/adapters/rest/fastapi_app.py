@@ -1,11 +1,11 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
-from ...usecases.generate_embedding import GenerateEmbeddingUC
+from ...usecases.generate_embedding import GenerateEmbeddingUC, MultiModelEmbeddingUC
 from ...domain.auth import AuthContext
 from .auth_middleware import get_current_user, AuthenticationMiddleware
 from .vdb_routes import build_vdb_router
@@ -22,6 +22,7 @@ from ...utils.text_chunking import (
 class EmbedReq(BaseModel):
     text: Optional[str] = None
     texts: Optional[List[str]] = None
+    model: Optional[str] = "fast"  # "fast" or "thinking"
     task_type: str = "passage"
     normalize: bool = True
     auto_chunk: bool = False
@@ -31,7 +32,7 @@ class EmbedReq(BaseModel):
     return_chunks: bool = False
 
 
-def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI:
+def build_fastapi(uc: Union[GenerateEmbeddingUC, MultiModelEmbeddingUC], vdb_usecases: dict = None) -> FastAPI:
     app = FastAPI(
         title="Embeddings + Vector Database Service",
         description="Generate embeddings and store/search vectors",
@@ -119,7 +120,7 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
             # Check if text is too long and auto_chunk is disabled
             if needs_chunking and not req.auto_chunk:
                 # Generate embedding but warn about truncation
-                result = uc.embed(text, task_type=req.task_type, normalize=req.normalize)
+                result = uc.embed(text, model=req.model, task_type=req.task_type, normalize=req.normalize)
                 result["requested_by"] = auth.username
                 result["user_role"] = auth.role
                 result["warning"] = f"Text length ({text_length} chars) exceeds model limit (~2048 chars). Consider using auto_chunk=true"
@@ -138,9 +139,15 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
                 
                 # Embed each chunk
                 chunk_results = []
+                first_chunk_metadata = None
                 for chunk in chunks:
-                    chunk_result = uc.embed(chunk, task_type=req.task_type, normalize=req.normalize)
+                    chunk_result = uc.embed(chunk, model=req.model, task_type=req.task_type, normalize=req.normalize)
                     chunk_results.append(chunk_result["embedding"])
+                    if first_chunk_metadata is None:
+                        first_chunk_metadata = {
+                            "model_id": chunk_result["model_id"],
+                            "dim": chunk_result["dim"]
+                        }
                 
                 # Combine embeddings
                 combined_embedding = combine_embeddings(
@@ -148,13 +155,10 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
                     method=req.combine_method
                 )
                 
-                # Get model info from health check
-                health_info = uc.health()
-                
                 # Build response
                 response = {
-                    "model_id": health_info["model_id"],
-                    "dim": health_info["dim"],
+                    "model_id": first_chunk_metadata["model_id"],
+                    "dim": first_chunk_metadata["dim"],
                     "embedding": combined_embedding,
                     "requested_by": auth.username,
                     "user_role": auth.role,
@@ -173,7 +177,7 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
                 return response
             else:
                 # Text is short enough, process normally
-                result = uc.embed(text, task_type=req.task_type, normalize=req.normalize)
+                result = uc.embed(text, model=req.model, task_type=req.task_type, normalize=req.normalize)
                 result["requested_by"] = auth.username
                 result["user_role"] = auth.role
                 result["text_length"] = text_length
@@ -183,7 +187,7 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         # Multiple texts - process as batch (no chunking for batch mode)
         else:
             res = uc.embed_batch(
-                items, task_type=req.task_type, normalize=req.normalize
+                items, model=req.model, task_type=req.task_type, normalize=req.normalize
             )
             return {
                 "model_id": res["model_id"],

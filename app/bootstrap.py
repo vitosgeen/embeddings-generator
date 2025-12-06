@@ -4,8 +4,8 @@ from .adapters.infra.vdb_storage import (
     LanceDBVectorStorage,
     HashSharding,
 )
-from .config import BATCH_SIZE, MODEL_ID, VDB_STORAGE_PATH
-from .usecases.generate_embedding import GenerateEmbeddingUC
+from .config import BATCH_SIZE, MODEL_ID, VDB_STORAGE_PATH, MODEL_FAST, MODEL_THINKING, MODEL_ALIASES
+from .usecases.generate_embedding import GenerateEmbeddingUC, MultiModelEmbeddingUC
 from .usecases.vdb_usecases import (
     CreateProjectUC,
     ListProjectsUC,
@@ -20,6 +20,15 @@ from .usecases.vdb_usecases import (
 def build_usecase() -> GenerateEmbeddingUC:
     encoder = SentenceEncoder(MODEL_ID, device=None, batch_size=BATCH_SIZE)
     return GenerateEmbeddingUC(encoder)
+
+
+def build_multi_model_usecase() -> MultiModelEmbeddingUC:
+    """Build use case with both fast and thinking models."""
+    encoders = {
+        "fast": SentenceEncoder(MODEL_FAST, device=None, batch_size=BATCH_SIZE),
+        "thinking": SentenceEncoder(MODEL_THINKING, device=None, batch_size=BATCH_SIZE),
+    }
+    return MultiModelEmbeddingUC(encoders, MODEL_ALIASES)
 
 
 def build_vdb_usecases():

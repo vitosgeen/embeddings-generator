@@ -322,13 +322,25 @@ ADMIN_PASSWORD=your-secure-password-here
 
 ### 📋 Model Options
 
-Popular model choices for different use cases:
+The service supports **dual-model architecture** for different use cases:
 
-- **Multilingual (Default)**: `intfloat/multilingual-e5-base` (768 dim, 100+ languages)
-- **English High Quality**: `BAAI/bge-base-en-v1.5` (768 dim, English only)
-- **Fast & Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim, English)
-- **English Best Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
-- **Multilingual Large**: `intfloat/multilingual-e5-large` (1024 dim, best quality)
+**Default Models:**
+- **`fast`**: `intfloat/multilingual-e5-base` (768 dims) - Quick responses for support bots, chat, short messages
+- **`thinking`**: `intfloat/multilingual-e5-large` (1024 dims) - Deep analysis for long documents, emails, articles
+
+**How to use:**
+```bash
+# Fast model (default) - for chat/support bots
+curl -X POST /embed -d '{"text": "How can I help?", "model": "fast"}'
+
+# Thinking model - for long documents/analysis  
+curl -X POST /embed -d '{"text": "Long email content...", "model": "thinking"}'
+```
+
+**Alternative Models** (configure in .env):
+- **English-only**: `BAAI/bge-base-en-v1.5` (768 dim, English only)
+- **Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim, fast)
+- **Best Quality**: `BAAI/bge-m3` (1024 dim, requires PyTorch 2.6+)
 
 ---
 
