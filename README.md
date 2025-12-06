@@ -189,6 +189,15 @@ Visit **http://localhost:8000/user-docs** for a user-friendly interface where yo
 
 The main page (http://localhost:8000) also includes a quick API key input for convenient testing of basic features.
 
+**Postman Collection:**
+
+Import `Embeddings_Service.postman_collection.json` into Postman for a complete collection of API requests:
+- Pre-configured authentication with collection variables
+- All REST API endpoints organized by category
+- Example requests with realistic payloads
+- Complete workflow examples (create project → generate embeddings → store → search)
+- Easy testing with environment variables (`base_url`, `api_key`, `project_id`)
+
 ---
 
 ## 🎯 Demo

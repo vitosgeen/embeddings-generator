@@ -53,6 +53,21 @@ def build_fastapi(uc: GenerateEmbeddingUC, vdb_usecases: dict = None) -> FastAPI
         """Interactive user documentation with API testing."""
         return templates.TemplateResponse("user_docs.html", {"request": request})
 
+    @app.get("/postman-collection")
+    async def postman_collection():
+        """Download Postman collection for API testing."""
+        from fastapi.responses import FileResponse
+        import os
+        
+        file_path = "Embeddings_Service.postman_collection.json"
+        if os.path.exists(file_path):
+            return FileResponse(
+                path=file_path,
+                media_type="application/json",
+                filename="Embeddings_Service.postman_collection.json"
+            )
+        return {"error": "Postman collection not found"}
+
     @app.get("/favicon.ico")
     async def favicon():
         """Serve a simple favicon to prevent 404 errors."""

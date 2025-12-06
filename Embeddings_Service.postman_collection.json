@@ -1,0 +1,499 @@
+{
+	"info": {
+		"_postman_id": "embeddings-service-collection",
+		"name": "Embeddings Service API",
+		"description": "Complete API collection for the Embeddings Service with REST endpoints for generating embeddings and managing vector database.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{api_key}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "sk-admin-secret123",
+			"type": "string"
+		},
+		{
+			"key": "project_id",
+			"value": "test-project",
+			"type": "string"
+		},
+		{
+			"key": "collection_name",
+			"value": "documents",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & Info",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Check service health and get model information"
+					},
+					"response": []
+				},
+				{
+					"name": "API Documentation (Swagger)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/docs",
+							"host": ["{{base_url}}"],
+							"path": ["docs"]
+						},
+						"description": "Open Swagger UI for interactive API documentation"
+					},
+					"response": []
+				}
+			],
+			"description": "Health check and service information endpoints"
+		},
+		{
+			"name": "Embeddings",
+			"item": [
+				{
+					"name": "Generate Single Embedding",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Artificial intelligence is transforming technology\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/embed",
+							"host": ["{{base_url}}"],
+							"path": ["embed"]
+						},
+						"description": "Generate embedding for a single text. task_type can be 'passage' (for documents) or 'query' (for search queries)."
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Batch Embeddings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"texts\": [\n    \"Machine learning is a subset of AI\",\n    \"Deep learning uses neural networks\",\n    \"Natural language processing handles text\"\n  ],\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/embed",
+							"host": ["{{base_url}}"],
+							"path": ["embed"]
+						},
+						"description": "Generate embeddings for multiple texts in a single request"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate with Auto-Chunking",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"This is a very long document that needs to be split into multiple chunks for processing. The service will automatically handle the chunking and combine the embeddings using your chosen method. This is useful for documents that exceed the model's maximum token limit.\",\n  \"auto_chunk\": true,\n  \"chunk_size\": 2000,\n  \"combine_method\": \"average\",\n  \"return_chunks\": true,\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/embed",
+							"host": ["{{base_url}}"],
+							"path": ["embed"]
+						},
+						"description": "Automatically chunk long text and combine embeddings. combine_method can be: average, weighted, max, first"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for generating text embeddings"
+		},
+		{
+			"name": "Vector Database - Projects",
+			"item": [
+				{
+					"name": "Create Project",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"project_id\": \"{{project_id}}\",\n  \"metadata\": {\n    \"description\": \"My test project\",\n    \"owner\": \"user@example.com\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/projects",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects"]
+						},
+						"description": "Create a new vector database project"
+					},
+					"response": []
+				},
+				{
+					"name": "List Projects",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/projects",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects"]
+						},
+						"description": "List all projects accessible to the user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Project Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/projects/{{project_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects", "{{project_id}}"]
+						},
+						"description": "Get detailed information about a specific project"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Project",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/projects/{{project_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects", "{{project_id}}"]
+						},
+						"description": "Delete a project and all its collections"
+					},
+					"response": []
+				}
+			],
+			"description": "Project management endpoints"
+		},
+		{
+			"name": "Vector Database - Collections",
+			"item": [
+				{
+					"name": "Create Collection",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"{{collection_name}}\",\n  \"dimension\": 768,\n  \"metadata\": {\n    \"description\": \"Document embeddings collection\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/projects/{{project_id}}/collections",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects", "{{project_id}}", "collections"]
+						},
+						"description": "Create a new collection within a project. Dimension should match your embedding model (768 for BAAI/bge-base-en-v1.5)"
+					},
+					"response": []
+				},
+				{
+					"name": "List Collections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/projects/{{project_id}}/collections",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects", "{{project_id}}", "collections"]
+						},
+						"description": "List all collections in a project"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Collection Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/projects/{{project_id}}/collections/{{collection_name}}",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "projects", "{{project_id}}", "collections", "{{collection_name}}"]
+						},
+						"description": "Get detailed information about a specific collection"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection management endpoints"
+		},
+		{
+			"name": "Vector Database - Vectors",
+			"item": [
+				{
+					"name": "Add Vector",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"project_id\": \"{{project_id}}\",\n  \"collection_name\": \"{{collection_name}}\",\n  \"vector_id\": \"doc-1\",\n  \"vector\": [0.1, 0.2, 0.3],\n  \"metadata\": {\n    \"text\": \"Original document text\",\n    \"source\": \"example.txt\",\n    \"created_at\": \"2025-12-06\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/vectors",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "vectors"]
+						},
+						"description": "Add a vector to a collection. Vector should have the same dimension as the collection (768 for default model). Note: This example shows only 3 dimensions for brevity."
+					},
+					"response": []
+				},
+				{
+					"name": "Search Vectors",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"project_id\": \"{{project_id}}\",\n  \"collection_name\": \"{{collection_name}}\",\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"top_k\": 5,\n  \"filters\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/search",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "search"]
+						},
+						"description": "Search for similar vectors. Returns top_k most similar vectors with their metadata and similarity scores. Note: query_vector should have 768 dimensions for default model."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Vector by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/vectors/{{project_id}}/{{collection_name}}/doc-1",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "vectors", "{{project_id}}", "{{collection_name}}", "doc-1"]
+						},
+						"description": "Retrieve a specific vector by its ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Vector",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/vdb/vectors/{{project_id}}/{{collection_name}}/doc-1",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "vectors", "{{project_id}}", "{{collection_name}}", "doc-1"]
+						},
+						"description": "Delete a vector from a collection"
+					},
+					"response": []
+				}
+			],
+			"description": "Vector storage and search endpoints"
+		},
+		{
+			"name": "Workflows",
+			"item": [
+				{
+					"name": "Complete Workflow - Generate & Store",
+					"item": [
+						{
+							"name": "1. Create Project",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"project_id\": \"my-rag-project\",\n  \"metadata\": {\n    \"description\": \"RAG system for documentation\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/projects",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "projects"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "2. Create Collection",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"docs\",\n  \"dimension\": 768\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/projects/my-rag-project/collections",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "projects", "my-rag-project", "collections"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "3. Generate Embedding",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.collectionVariables.set(\"generated_embedding\", JSON.stringify(jsonData.embedding));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"text\": \"How to install the embeddings service\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/embed",
+									"host": ["{{base_url}}"],
+									"path": ["embed"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4. Store Vector",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"project_id\": \"my-rag-project\",\n  \"collection_name\": \"docs\",\n  \"vector_id\": \"doc-install-guide\",\n  \"vector\": {{generated_embedding}},\n  \"metadata\": {\n    \"title\": \"Installation Guide\",\n    \"text\": \"How to install the embeddings service\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/vectors",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "vectors"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5. Search Similar Docs",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"project_id\": \"my-rag-project\",\n  \"collection_name\": \"docs\",\n  \"query_vector\": {{generated_embedding}},\n  \"top_k\": 5\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/search",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "search"]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "Complete workflow showing how to create a project, generate embeddings, store them, and search for similar documents"
+				}
+			],
+			"description": "Example workflows and use cases"
+		}
+	]
+}
