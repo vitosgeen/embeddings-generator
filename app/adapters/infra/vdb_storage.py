@@ -300,6 +300,52 @@ class LanceDBVectorStorage:
         all_results.sort(key=lambda x: x.score, reverse=True)
         return all_results[:limit], shard_info
     
+    def get_vector(
+        self,
+        project_id: ProjectId,
+        collection: CollectionName,
+        vector_id: str,
+    ) -> Optional[VectorRecord]:
+        """Get a specific vector by ID.
+        
+        Args:
+            project_id: Project identifier
+            collection: Collection name
+            vector_id: ID of vector to retrieve
+            
+        Returns:
+            VectorRecord if found, None otherwise
+        """
+        config = self._load_config(project_id, collection)
+        
+        # Compute which shard contains this vector
+        shard_id = self.sharding.compute_shard(vector_id, config.shards)
+        shard_path = self._shard_path(project_id, collection, shard_id)
+        
+        if not shard_path.exists():
+            return None
+        
+        try:
+            db = self._get_db(shard_path)
+            table = db.open_table("vectors")
+            
+            # Query for the specific vector
+            results = table.search().where(f"id = '{vector_id}'").limit(1).to_list()
+            
+            if not results or results[0].get("deleted", False):
+                return None
+            
+            row = results[0]
+            return VectorRecord(
+                id=row["id"],
+                embedding=row["vector"].tolist() if hasattr(row["vector"], 'tolist') else list(row["vector"]),
+                metadata=json.loads(row.get("metadata", "{}")),
+                document=row.get("document") if row.get("document") else None,
+            )
+        
+        except Exception:
+            return None
+    
     def delete_vector(
         self,
         project_id: ProjectId,

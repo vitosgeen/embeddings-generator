@@ -83,6 +83,24 @@ class VectorStoragePort(Protocol):
         """
         ...
     
+    def get_vector(
+        self,
+        project_id: ProjectId,
+        collection: CollectionName,
+        vector_id: str,
+    ) -> Optional[VectorRecord]:
+        """Get a specific vector by ID.
+        
+        Args:
+            project_id: Project identifier
+            collection: Collection name
+            vector_id: ID of vector to retrieve
+            
+        Returns:
+            VectorRecord if found, None otherwise
+        """
+        ...
+    
     def delete_vector(
         self,
         project_id: ProjectId,

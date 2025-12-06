@@ -79,6 +79,104 @@
 			"description": "Health check and service information endpoints"
 		},
 		{
+			"name": "🌟 Simple API (Beginners)",
+			"item": [
+				{
+					"name": "Add Text Document",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"doc_python_intro\",\n  \"text\": \"Python is a powerful programming language used for data science, web development, and automation. It's easy to learn and has a large community.\",\n  \"metadata\": {\n    \"category\": \"programming\",\n    \"level\": \"beginner\",\n    \"author\": \"John Doe\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/simple/{{project_id}}/collections/{{collection_name}}/add",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "simple", "{{project_id}}", "collections", "{{collection_name}}", "add"]
+						},
+						"description": "🚀 Simple API: Add text without dealing with vectors! Just provide text and optional metadata. The system automatically converts it to vectors."
+					},
+					"response": []
+				},
+				{
+					"name": "Search by Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"web development languages\",\n  \"limit\": 5,\n  \"min_score\": 0.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/simple/{{project_id}}/collections/{{collection_name}}/search",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "simple", "{{project_id}}", "collections", "{{collection_name}}", "search"]
+						},
+						"description": "🔍 Simple API: Search by text to find similar documents! No need to generate embeddings yourself."
+					},
+					"response": []
+				},
+				{
+					"name": "Add FAQ Entry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"faq_password_reset\",\n  \"text\": \"To reset your password, click on 'Forgot Password' on the login page. You will receive an email with instructions to create a new password.\",\n  \"metadata\": {\n    \"category\": \"account\",\n    \"priority\": \"high\",\n    \"updated\": \"2024-12-06\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/simple/support/collections/faq/add",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "simple", "support", "collections", "faq", "add"]
+						},
+						"description": "Example: Store FAQ entries for customer support"
+					},
+					"response": []
+				},
+				{
+					"name": "Search FAQ",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"how to change my password\",\n  \"limit\": 3,\n  \"min_score\": 0.6\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/vdb/simple/support/collections/faq/search",
+							"host": ["{{base_url}}"],
+							"path": ["vdb", "simple", "support", "collections", "faq", "search"]
+						},
+						"description": "Example: Search FAQ to find relevant answers"
+					},
+					"response": []
+				}
+			],
+			"description": "🌟 Simplified API for beginners - no vector knowledge required! Just add text and search by text."
+		},
+		{
 			"name": "Embeddings",
 			"item": [
 				{
@@ -514,6 +612,149 @@
 						}
 					],
 					"description": "Complete workflow showing how to create a project, generate embeddings, store them, and search for similar documents"
+				},
+				{
+					"name": "Simple API (For Beginners)",
+					"item": [
+						{
+							"name": "1. Setup Project & Collection",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"project_id\": \"quickstart\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/projects",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "projects"]
+								},
+								"description": "Create a project for simple API (one-time setup)"
+							},
+							"response": []
+						},
+						{
+							"name": "2. Create Collection",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"docs\",\n  \"dimension\": 768\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/projects/quickstart/collections",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "projects", "quickstart", "collections"]
+								},
+								"description": "Create a collection (one-time setup)"
+							},
+							"response": []
+						},
+						{
+							"name": "3. Add Text (Simple)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"id\": \"doc_123\",\n  \"text\": \"Python is a powerful programming language used for data science and web development. It has a simple syntax and a large ecosystem of libraries.\",\n  \"metadata\": {\n    \"category\": \"programming\",\n    \"level\": \"beginner\",\n    \"author\": \"John\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/simple/quickstart/collections/docs/add",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "simple", "quickstart", "collections", "docs", "add"]
+								},
+								"description": "🚀 Simple API: Add text without dealing with vectors!\n\nJust send your text and we'll automatically:\n- Convert it to embeddings\n- Store it in the database\n- Make it searchable\n\nNo ML knowledge required!"
+							},
+							"response": []
+						},
+						{
+							"name": "4. Add More Documents",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"id\": \"doc_456\",\n  \"text\": \"JavaScript is essential for modern web development. It runs in browsers and enables interactive websites and web applications.\",\n  \"metadata\": {\n    \"category\": \"programming\",\n    \"level\": \"intermediate\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/simple/quickstart/collections/docs/add",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "simple", "quickstart", "collections", "docs", "add"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5. Search Text (Simple)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"query\": \"web development languages\",\n  \"limit\": 5,\n  \"min_score\": 0.5\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/simple/quickstart/collections/docs/search",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "simple", "quickstart", "collections", "docs", "search"]
+								},
+								"description": "🔍 Simple API: Search by text!\n\nJust send your search query as plain text and get similar documents back.\n\nReturns:\n- Matching documents\n- Similarity scores (0.0 to 1.0)\n- Original text and metadata\n\nNo need to understand vectors or embeddings!"
+							},
+							"response": []
+						},
+						{
+							"name": "6. Search with Higher Threshold",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"query\": \"Python programming\",\n  \"limit\": 3,\n  \"min_score\": 0.7\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/vdb/simple/quickstart/collections/docs/search",
+									"host": ["{{base_url}}"],
+									"path": ["vdb", "simple", "quickstart", "collections", "docs", "search"]
+								},
+								"description": "Search with higher similarity threshold (0.7) to get only very similar results"
+							},
+							"response": []
+						}
+					],
+					"description": "🌟 Simple API for beginners - No vector knowledge required!\n\nJust work with text directly:\n- Add text documents\n- Search by text\n- Get similar documents\n\nPerfect for:\n- Customer support chatbots\n- Document search systems\n- FAQ matching\n- Content recommendations"
 				}
 			],
 			"description": "Example workflows and use cases"
