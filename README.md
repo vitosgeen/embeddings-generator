@@ -63,7 +63,7 @@ nano .env  # or use your preferred editor
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `MODEL_ID` | Sentence Transformer model from Hugging Face | `BAAI/bge-base-en-v1.5` | `sentence-transformers/all-MiniLM-L6-v2` |
+| `MODEL_ID` | Sentence Transformer model from Hugging Face | `BAAI/bge-m3` | `sentence-transformers/all-MiniLM-L6-v2` |
 | `DEVICE` | Processing device (auto/cpu/cuda/mps) | `auto` | `cuda` |
 | `BATCH_SIZE` | Batch size for processing | `32` | `64` |
 | `REST_PORT` | REST API port | `8000` | `8080` |
@@ -90,7 +90,7 @@ API_KEYS=admin:sk-admin-your-secret-key,user1:sk-user1-another-key,monitoring:sk
 
 Popular model choices for different use cases:
 
-- **General Purpose**: `BAAI/bge-base-en-v1.5` (768 dim, high quality)
+- **General Purpose**: `BAAI/bge-m3` (768 dim, high quality)
 - **Fast & Lightweight**: `sentence-transformers/all-MiniLM-L6-v2` (384 dim)
 - **High Quality**: `sentence-transformers/all-mpnet-base-v2` (768 dim)
 - **Multilingual**: `intfloat/multilingual-e5-base` (768 dim)
@@ -155,7 +155,7 @@ curl -X GET http://localhost:8000/health
 
 ```json
 {
-  "model_id": "BAAI/bge-base-en-v1.5",
+  "model_id": "BAAI/bge-m3",
   "dim": 768,
   "embedding": [0.1234, -0.5678, ...],
   "requested_by": "admin"
