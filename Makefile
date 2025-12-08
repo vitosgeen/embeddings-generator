@@ -9,6 +9,49 @@ PROTO_DIR := proto
 GEN_DIR := proto
 MAIN := main.py
 
+.DEFAULT_GOAL := help
+
+# -----------------------------
+# 📖 Help
+# -----------------------------
+
+.PHONY: help
+help:
+	@echo "🚀 Embeddings Service - Available Commands"
+	@echo "=========================================="
+	@echo ""
+	@echo "🔧 Setup & Installation:"
+	@echo "  make setup         - Complete setup (recommended for first-time)"
+	@echo "  make deps          - Install dependencies + generate proto"
+	@echo "  make venv          - Create virtual environment only"
+	@echo "  make proto         - Generate gRPC files"
+	@echo "  make check-deps    - Verify all dependencies installed"
+	@echo ""
+	@echo "🚀 Running:"
+	@echo "  make run           - Start the service (REST + gRPC)"
+	@echo "  make dev           - Regenerate proto + run"
+	@echo ""
+	@echo "🛑 Stopping:"
+	@echo "  make stop          - Stop all services"
+	@echo "  make stop-rest     - Stop REST API only"
+	@echo "  make stop-grpc     - Stop gRPC server only"
+	@echo ""
+	@echo "🧪 Testing:"
+	@echo "  make test          - Run all tests"
+	@echo "  make test-unit     - Run unit tests"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-coverage - Run tests with coverage"
+	@echo ""
+	@echo "🧹 Cleanup:"
+	@echo "  make clean         - Remove venv and generated files"
+	@echo "  make vdb-clean     - Clean vector database data"
+	@echo ""
+	@echo "ℹ️  Quick Start:"
+	@echo "  1. make setup"
+	@echo "  2. echo 'API_KEYS=admin:sk-admin-secret123' > .env"
+	@echo "  3. make run"
+	@echo ""
+
 # -----------------------------
 # 🧱 Virtualenv & dependencies
 # -----------------------------
@@ -25,6 +68,24 @@ deps: venv
 	$(VENV_BIN)/pip install --upgrade pip
 	$(VENV_BIN)/pip install -r requirements.txt
 	@echo "✅ Dependencies installed."
+	@echo "⚙️  Generating gRPC stubs..."
+	@$(MAKE) proto-silent
+	@echo "✅ Setup complete! Run 'make run' to start the service."
+
+.PHONY: setup
+setup: deps
+	@echo "🎉 All done! Your environment is ready."
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Configure: echo 'API_KEYS=admin:sk-admin-secret123' > .env"
+	@echo "  2. Start:     make run"
+	@echo "  3. Test:      curl http://localhost:8000/health"
+	@echo ""
+
+.PHONY: check-deps
+check-deps:
+	@echo "🔍 Checking dependencies..."
+	@$(PYTHON) scripts/check_dependencies.py
 
 # -----------------------------
 # ⚙️ Proto generation
@@ -52,6 +113,20 @@ proto:
 	sed -i 's/import embeddings_pb2 as embeddings__pb2/from . import embeddings_pb2 as embeddings__pb2/' $(GEN_DIR)/embeddings_pb2_grpc.py
 	@echo "✅ Proto files generated in $(GEN_DIR)"
 	@ls -l $(GEN_DIR) | grep "embeddings" || echo "⚠️  No embeddings_pb2 files found!"
+
+.PHONY: proto-silent
+proto-silent:
+	@mkdir -p $(GEN_DIR)
+	@touch app/__init__.py app/adapters/__init__.py app/adapters/grpc/__init__.py $(GEN_DIR)/__init__.py
+	@if [ -f "$(PROTO_DIR)/embeddings.proto" ]; then \
+		PYTHONPATH=. $(VENV_BIN)/python -m grpc_tools.protoc \
+			--proto_path=$(PROTO_DIR) \
+			--python_out=$(GEN_DIR) \
+			--grpc_python_out=$(GEN_DIR) \
+			--pyi_out=$(GEN_DIR) \
+			embeddings.proto 2>/dev/null; \
+		sed -i 's/import embeddings_pb2 as embeddings__pb2/from . import embeddings_pb2 as embeddings__pb2/' $(GEN_DIR)/embeddings_pb2_grpc.py 2>/dev/null; \
+	fi
 
 # -----------------------------
 # 🚀 Run locally (REST + gRPC)

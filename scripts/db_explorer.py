@@ -21,8 +21,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     import lancedb
     import pyarrow as pa
-    import pandas as pd
+    HAS_LANCEDB = True
 except ImportError:
+    HAS_LANCEDB = False
+
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
+# Only exit if running as CLI
+if __name__ == "__main__" and not (HAS_LANCEDB and HAS_PANDAS):
     print("Error: Required packages not installed.")
     print("Run: pip install lancedb pyarrow pandas")
     sys.exit(1)
@@ -103,39 +113,60 @@ class VDBExplorer:
         return shard_info
     
     def get_vectors(self, project_id: str, collection: str, shard_id: int, 
-                   limit: int = 10, include_vectors: bool = False) -> pd.DataFrame:
-        """Get vectors from a specific shard."""
+                   limit: int = 10, include_vectors: bool = False):
+        """Get vectors from a specific shard.
+        
+        Returns:
+            - pd.DataFrame if pandas is available
+            - List[Dict] if pandas is not available
+        """
         shard_path = self.vdb_path / project_id / "collections" / collection / f"shard_{shard_id}"
         
         if not shard_path.exists():
-            return pd.DataFrame()
+            return pd.DataFrame() if HAS_PANDAS else []
         
         try:
             db = lancedb.connect(str(shard_path))
             table = db.open_table("vectors")
             
-            # Convert to pandas
-            df = table.to_pandas()
+            # Get data as arrow table
+            arrow_table = table.to_arrow()
             
             # Limit rows
             if limit:
-                df = df.head(limit)
+                arrow_table = arrow_table.slice(0, min(limit, arrow_table.num_rows))
             
-            # Remove vector column if not requested (it's large)
-            if not include_vectors and 'vector' in df.columns:
-                df['vector_dim'] = df['vector'].apply(lambda x: len(x) if x is not None else 0)
-                df = df.drop(columns=['vector'])
+            # Convert to list of dicts
+            rows = arrow_table.to_pylist()
             
-            # Parse metadata JSON
-            if 'metadata' in df.columns:
-                df['metadata'] = df['metadata'].apply(
-                    lambda x: json.loads(x) if isinstance(x, str) else x
-                )
+            # Process rows
+            for row in rows:
+                # Handle vector column
+                if 'vector' in row:
+                    if include_vectors:
+                        # Keep vector as list
+                        pass
+                    else:
+                        # Replace with dimension info
+                        row['vector_dim'] = len(row['vector']) if row['vector'] else 0
+                        del row['vector']
+                
+                # Parse metadata JSON
+                if 'metadata' in row and isinstance(row['metadata'], str):
+                    try:
+                        row['metadata'] = json.loads(row['metadata'])
+                    except:
+                        pass
             
-            return df
+            # Return pandas DataFrame if available, otherwise list
+            if HAS_PANDAS:
+                return pd.DataFrame(rows)
+            else:
+                return rows
+                
         except Exception as e:
             print(f"Error reading shard {shard_id}: {e}")
-            return pd.DataFrame()
+            return pd.DataFrame() if HAS_PANDAS else []
     
     def search_by_id(self, project_id: str, collection: str, vector_id: str) -> Optional[Dict]:
         """Search for a vector by ID across all shards."""
