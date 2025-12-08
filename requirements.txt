@@ -11,6 +11,7 @@ python-dotenv>=0.19.0,<2.0.0
 # Vector Database
 lancedb>=0.14.0,<0.15.0
 pyarrow>=17.0.0,<18.0.0
+pandas>=2.0.0,<3.0.0  # For database explorer
 
 # Authentication & Database
 sqlalchemy>=2.0.0,<3.0.0

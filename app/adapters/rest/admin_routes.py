@@ -1129,24 +1129,42 @@ def build_admin_router() -> APIRouter:
         vdb = VDBExplorer()
         
         try:
-            # Get vectors from shard
-            df = vdb.get_vectors(project_id, collection, shard_id, limit=limit, include_vectors=False)
+            # Get vectors from shard (returns DataFrame or list of dicts)
+            result = vdb.get_vectors(project_id, collection, shard_id, limit=limit, include_vectors=False)
             
-            if df.empty:
-                return {"success": True, "rows": []}
-            
-            # Convert to list of dicts
-            rows = []
-            for _, row in df.iterrows():
-                rows.append({
-                    "id": row.get("id", ""),
-                    "document": row.get("document", ""),
-                    "metadata": row.get("metadata", {}),
-                    "vector_dim": int(row.get("vector_dim", 0)),
-                    "created_at": int(row.get("created_at", 0)),
-                    "updated_at": int(row.get("updated_at", 0)),
-                    "deleted": bool(row.get("deleted", False))
-                })
+            # Handle both DataFrame and list formats
+            if isinstance(result, list):
+                # Already a list of dicts
+                if not result:
+                    return {"success": True, "rows": []}
+                
+                rows = []
+                for row in result:
+                    rows.append({
+                        "id": row.get("id", ""),
+                        "document": row.get("document", ""),
+                        "metadata": row.get("metadata", {}),
+                        "vector_dim": int(row.get("vector_dim", 0)),
+                        "created_at": int(row.get("created_at", 0)),
+                        "updated_at": int(row.get("updated_at", 0)),
+                        "deleted": bool(row.get("deleted", False))
+                    })
+            else:
+                # It's a pandas DataFrame
+                if result.empty:
+                    return {"success": True, "rows": []}
+                
+                rows = []
+                for _, row in result.iterrows():
+                    rows.append({
+                        "id": row.get("id", ""),
+                        "document": row.get("document", ""),
+                        "metadata": row.get("metadata", {}),
+                        "vector_dim": int(row.get("vector_dim", 0)),
+                        "created_at": int(row.get("created_at", 0)),
+                        "updated_at": int(row.get("updated_at", 0)),
+                        "deleted": bool(row.get("deleted", False))
+                    })
             
             return {"success": True, "rows": rows}
             

@@ -7,35 +7,43 @@
 git clone https://github.com/vitosgeen/embeddings-generator.git && \
 cd embeddings-generator && \
 echo "API_KEYS=admin:sk-admin-secret123" > .env && \
-make deps && make proto && make run
+make setup
 ```
 
 Then open: http://localhost:8000
 
 ---
 
-## Step-by-Step (5 minutes)
+## Step-by-Step (3 minutes)
 
-### 1. Clone & Setup
+### 1. Clone Repository
 ```bash
 git clone https://github.com/vitosgeen/embeddings-generator.git
 cd embeddings-generator
-make venv
-make deps
 ```
 
-### 2. Configure
+### 2. Setup Everything (installs deps + generates proto files)
+```bash
+make setup
+```
+
+**What this does:**
+- Creates Python virtual environment
+- Installs all dependencies (including pandas for DB Explorer)
+- Generates gRPC protocol buffer files
+- Verifies everything is ready
+
+### 3. Configure API Key
 ```bash
 echo "API_KEYS=admin:sk-admin-secret123" > .env
 ```
 
-### 3. Build & Run
+### 4. Start Service
 ```bash
-make proto
 make run
 ```
 
-### 4. Test It
+### 5. Test It
 ```bash
 # In a new terminal
 curl -X POST http://localhost:8000/embed \

@@ -228,8 +228,10 @@ Import `Embeddings_Service.postman_collection.json` into Postman for a complete 
 
 | Command | Description |
 |----------|--------------|
+| `make setup` | **Complete setup** (venv + deps + proto) - Run this first! |
 | `make venv` | Create a Python virtual environment |
-| `make deps` | Install dependencies from `requirements.txt` |
+| `make deps` | Install dependencies and generate proto files |
+| `make check-deps` | Verify all required dependencies are installed |
 | `make proto` | Generate gRPC Python files from `proto/embeddings.proto` |
 | `make run` | Run the service locally (REST + gRPC) |
 | `make dev` | Regenerate `.proto` files and run immediately |
@@ -254,8 +256,14 @@ For experienced developers:
 git clone https://github.com/vitosgeen/embeddings-generator.git && \
 cd embeddings-generator && \
 echo "API_KEYS=admin:sk-admin-secret123" > .env && \
-make deps && make proto && make run
+make setup && make run
 ```
+
+**That's it!** The `make setup` command now handles everything:
+- Creates virtual environment
+- Installs all dependencies (including pandas for DB Explorer)
+- Generates gRPC protocol buffers
+- Verifies setup is complete
 
 ## ⚙️ Configuration
 
