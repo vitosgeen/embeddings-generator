@@ -925,6 +925,72 @@ curl -X GET http://localhost:8000/health
 
 ---
 
+## 🔍 Database Explorer Tool
+
+Explore your Vector Database and Auth Database with automatic shard handling - available in both web and CLI interfaces!
+
+### 🌐 Web Interface (Recommended)
+Access through the admin dashboard at **http://localhost:8000/admin/explorer**
+
+**Features**:
+- **📦 Projects Tab**: Browse all projects with collection stats and visual shard distribution
+- **🔎 Search Vector Tab**: Find vectors by ID with automatic shard detection  
+- **👥 Auth Database Tab**: View user statistics and operation counts
+- **Interactive**: Click projects to see detailed shard information
+- **Beautiful UI**: Modern design with Tailwind CSS
+
+### 💻 CLI Interface
+For scripting and automation:
+
+```bash
+# Interactive menu
+python3 scripts/db_explorer.py
+
+# Quick vector lookup
+python3 scripts/quick_lookup.py simple_test docs doc1
+
+# Generate reports
+python3 scripts/generate_report.py --format json --days 30
+```
+
+### Example Usage
+
+**Web Interface**:
+1. Open `http://localhost:8000/admin/explorer`
+2. Click on any project to see collection details
+3. Use "Search Vector" tab to find specific vectors
+4. View auth stats in "Auth Database" tab
+
+**CLI**:
+```bash
+# List all projects
+Select option: 1
+
+# View collection info and shard distribution
+Select option: 3
+Enter project ID: simple_test
+Enter collection name: docs
+# Shows: 4 shards, 4 vectors total, distributed across shards
+
+# Find a specific vector by ID
+python3 scripts/quick_lookup.py simple_test docs doc1
+# Shows: Found in shard 0, displays metadata and document
+```
+
+**Why use this tool?**
+- Vectors are distributed across shards using hash-based sharding
+- Standard DB tools (SQLite Browser, DBeaver) don't understand the sharding logic
+- This tool automatically calculates the correct shard for any vector ID
+- Provides unified view of all data with metadata parsing
+- Web interface is integrated into admin dashboard with same authentication
+
+📚 **Full documentation**: 
+- Web interface: [docs/WEB_EXPLORER_INTEGRATION.md](docs/WEB_EXPLORER_INTEGRATION.md)
+- CLI tools: [scripts/README_EXPLORER.md](scripts/README_EXPLORER.md)
+- Quick reference: [scripts/QUICK_REFERENCE.md](scripts/QUICK_REFERENCE.md)
+
+---
+
 ## 🚀 Deployment
 
 ### 🖥️ Local Development
