@@ -108,6 +108,66 @@
             </table>
         </div>
     </div>
+
+    <!-- Collections Section -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mt-6">
+        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Collections</h3>
+                <p class="mt-1 text-sm text-gray-500">Vector database collections in this project</p>
+            </div>
+            <button 
+                hx-get="/admin/projects/{{ project.project_id }}/collections/new" 
+                hx-target="#collection-modal-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('collection-modal').classList.remove('hidden')"
+                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Create Collection
+            </button>
+        </div>
+        <div class="border-t border-gray-200">
+            <div id="collections-list" class="px-4 py-4">
+                {% if collections %}
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for collection in collections %}
+                    <div class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm hover:border-gray-400">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">
+                                    {{ collection.name }}
+                                </p>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Shards: {{ collection.shards }}
+                                </p>
+                                <p class="text-sm text-gray-500">
+                                    Vectors: {{ collection.vector_count or 0 }}
+                                </p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0">
+                                <a href="/admin/explorer?project={{ project.project_id }}&collection={{ collection.name }}" 
+                                   class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200">
+                                    Browse
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No collections</h3>
+                    <p class="mt-1 text-sm text-gray-500">Get started by creating a new collection.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Access Modal -->
@@ -118,6 +178,18 @@
         </div>
         <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div id="access-modal-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Collection Modal -->
+<div id="collection-modal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div id="collection-modal-content"></div>
         </div>
     </div>
 </div>
