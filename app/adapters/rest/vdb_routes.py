@@ -86,6 +86,30 @@ class SemanticSearchRequest(BaseModel):
     include_metadata: bool = Field(default=True, description="Include metadata in results")
 
 
+class FindSimilarRequest(BaseModel):
+    """Request model for finding similar vectors based on an existing vector ID."""
+    vector_id: str = Field(..., description="ID of the reference vector to find similar items for", min_length=1)
+    limit: int = Field(default=10, description="Maximum number of results (excluding the reference vector)", gt=0, le=100)
+    metadata_filter: Optional[Dict[str, Any]] = Field(default=None, description="Filter results by metadata fields")
+    min_score: Optional[float] = Field(default=None, description="Minimum similarity score (0.0 to 1.0)", ge=0.0, le=1.0)
+    include_metadata: bool = Field(default=True, description="Include metadata in results")
+    include_text: bool = Field(default=True, description="Include document text in results")
+
+
+class SimpleAddTextRequest(BaseModel):
+    """Simplified request for beginners - just add text without dealing with vectors."""
+    id: str = Field(..., description="Unique identifier for this text document", min_length=1, max_length=500)
+    text: str = Field(..., description="Text content to store", min_length=1, max_length=50000)
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata (e.g., {'category': 'news', 'author': 'John'})")
+
+
+class SimpleSearchTextRequest(BaseModel):
+    """Simplified search request for beginners - just search by text."""
+    query: str = Field(..., description="Text to search for", min_length=1, max_length=10000)
+    limit: int = Field(default=10, description="How many results to return", gt=0, le=100)
+    min_score: Optional[float] = Field(default=0.5, description="Minimum similarity (0.0-1.0, higher = more similar)", ge=0.0, le=1.0)
+
+
 class UpsertVectorRequest(BaseModel):
     id: str = Field(..., description="Unique vector identifier")
     embedding: List[float] = Field(..., description="Vector embedding")
@@ -636,6 +660,174 @@ def build_vdb_router(
                 )
             raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
     
+    @router.post("/projects/{project_id}/collections/{collection}/find-similar")
+    def find_similar(
+        project_id: str,
+        collection: str,
+        req: FindSimilarRequest,
+        auth: AuthContext = Depends(get_current_user),
+    ):
+        """Find similar vectors based on an existing vector ID.
+        
+        This endpoint retrieves a vector by ID and finds other similar vectors in the collection.
+        Perfect for "more like this" functionality or recommendation systems.
+        
+        Use cases:
+        - "Show me products similar to this one"
+        - "Find documents related to this article"
+        - "Get recommendations based on this item"
+        
+        The reference vector is excluded from results.
+        Requires read:vectors permission and project access.
+        """
+        start_time = time.time()
+        auth.require_permission("read:vectors")
+        
+        # Check project access
+        if not auth.can_access_project(project_id):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to project '{project_id}'",
+            )
+        
+        # Check quota
+        quota_storage = get_quota_storage()
+        if quota_storage:
+            allowed, reason = quota_storage.check_quota(
+                user_id=auth.user_id,
+                project_id=project_id,
+                operation_type="search",
+                vector_count=1
+            )
+            if not allowed:
+                usage_storage = get_usage_storage()
+                if usage_storage:
+                    usage_storage.record_operation(
+                        user_id=auth.user_id,
+                        project_id=project_id,
+                        operation_type="find_similar",
+                        collection_name=collection,
+                        status="quota_exceeded",
+                        metadata={"reason": reason, "vector_id": req.vector_id}
+                    )
+                raise HTTPException(status_code=429, detail=f"Quota exceeded: {reason}")
+        
+        try:
+            # Get the reference vector
+            from ...domain.vdb import ProjectId, CollectionName
+            vector_record = search_vectors_uc.vector_storage.get_vector(
+                project_id=ProjectId(project_id),
+                collection=CollectionName(collection),
+                vector_id=req.vector_id,
+            )
+            
+            if not vector_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Vector '{req.vector_id}' not found in collection '{collection}'"
+                )
+            
+            # Search for similar vectors (request limit + 1 to account for the reference vector)
+            result = search_vectors_uc.execute(
+                project_id=project_id,
+                collection=collection,
+                query_vector=vector_record.vector,
+                limit=req.limit + 1,  # Get one extra to exclude the reference
+                include_debug=False,
+            )
+            
+            # Filter out the reference vector and apply metadata filters
+            if "data" in result:
+                filtered_results = []
+                for item in result["data"]:
+                    # Skip the reference vector itself
+                    if item.get("id") == req.vector_id:
+                        continue
+                    
+                    # Apply metadata filter if provided
+                    if req.metadata_filter and "metadata" in item and item["metadata"]:
+                        match = all(
+                            item["metadata"].get(k) == v 
+                            for k, v in req.metadata_filter.items()
+                        )
+                        if not match:
+                            continue
+                    
+                    # Apply minimum score filter
+                    if req.min_score is not None and item.get("score", 0.0) < req.min_score:
+                        continue
+                    
+                    # Filter output fields based on request
+                    filtered_item = {
+                        "id": item["id"],
+                        "score": item.get("score", 0.0),
+                    }
+                    
+                    if req.include_metadata and "metadata" in item:
+                        filtered_item["metadata"] = item["metadata"]
+                    
+                    if req.include_text and "document" in item:
+                        filtered_item["document"] = item["document"]
+                    
+                    filtered_results.append(filtered_item)
+                    
+                    # Stop if we have enough results
+                    if len(filtered_results) >= req.limit:
+                        break
+                
+                result["data"] = filtered_results
+                result["count"] = len(filtered_results)
+                result["reference_vector_id"] = req.vector_id
+                if req.include_metadata and vector_record.metadata:
+                    result["reference_metadata"] = vector_record.metadata
+            
+            # Record usage
+            duration_ms = int((time.time() - start_time) * 1000)
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="find_similar",
+                    collection_name=collection,
+                    duration_ms=duration_ms,
+                    status="success",
+                    metadata={
+                        "result_count": result.get("count", 0),
+                        "vector_id": req.vector_id,
+                        "had_filter": req.metadata_filter is not None,
+                        "min_score": req.min_score
+                    }
+                )
+            
+            return result
+        except HTTPException:
+            raise
+        except ValueError as e:
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="find_similar",
+                    collection_name=collection,
+                    status="failure",
+                    metadata={"error": str(e), "vector_id": req.vector_id}
+                )
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="find_similar",
+                    collection_name=collection,
+                    status="failure",
+                    metadata={"error": str(e), "vector_id": req.vector_id}
+                )
+            raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    
     @router.delete("/projects/{project_id}/collections/{collection}/vectors/{vector_id}")
     def delete_vector(
         project_id: str,
@@ -1131,5 +1323,259 @@ def build_vdb_router(
             results=results,
             duration_ms=duration_ms
         )
+    
+    # ============================================================================
+    # SIMPLE API FOR BEGINNERS (No Vector Knowledge Required)
+    # ============================================================================
+    
+    @router.post("/simple/{project_id}/collections/{collection}/add")
+    def simple_add_text(
+        project_id: str,
+        collection: str,
+        req: SimpleAddTextRequest,
+        auth: AuthContext = Depends(get_current_user),
+    ):
+        """🚀 Simple API: Add text without dealing with vectors.
+        
+        **For Beginners**: This endpoint automatically converts your text into vectors.
+        You don't need to understand embeddings or machine learning - just send text!
+        
+        Example:
+        ```json
+        {
+          "id": "doc_123",
+          "text": "Python is a programming language",
+          "metadata": {"category": "programming", "level": "beginner"}
+        }
+        ```
+        
+        The system will:
+        1. Automatically convert your text to a vector (embedding)
+        2. Store it in the collection
+        3. Make it searchable
+        
+        Args:
+            project_id: Your project name
+            collection: Collection name to store the text
+            req: Text content with ID and optional metadata
+            auth: Authentication (automatic)
+            
+        Returns:
+            Success response with vector ID
+        """
+        start_time = time.time()
+        
+        # Check permissions and project access
+        auth.require_permission("write:vectors")
+        auth.require_project_access(project_id)
+        
+        # Check quota
+        quota_storage = get_quota_storage()
+        if quota_storage:
+            quota_ok, reason = quota_storage.check_quota(
+                user_id=auth.user_id,
+                project_id=project_id,
+                operation_type="simple_add_text",
+                vector_count=1
+            )
+            if not quota_ok:
+                usage_storage = get_usage_storage()
+                if usage_storage:
+                    usage_storage.record_operation(
+                        user_id=auth.user_id,
+                        project_id=project_id,
+                        operation_type="simple_add_text",
+                        collection_name=collection,
+                        status="quota_exceeded",
+                        metadata={"reason": reason}
+                    )
+                raise HTTPException(status_code=429, detail=f"Quota exceeded: {reason}")
+        
+        try:
+            # Generate embedding from text
+            from ...usecases.generate_embedding import GenerateEmbeddingUC
+            from ...bootstrap import build_usecase
+            
+            embedding_uc = build_usecase()
+            
+            # Use 'document' task type for storing documents
+            embedding_result = embedding_uc.embed(req.text, task_type="document", normalize=True)
+            vector = embedding_result["embedding"]
+            
+            # Add vector to collection
+            result = add_vector_uc.execute(
+                project_id=project_id,
+                collection=collection,
+                vector_id=req.id,
+                embedding=vector,
+                metadata=req.metadata,
+                document=req.text,  # Store original text
+            )
+            
+            # Record usage
+            duration_ms = int((time.time() - start_time) * 1000)
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="simple_add_text",
+                    collection_name=collection,
+                    vector_count=1,
+                    duration_ms=duration_ms,
+                    status="success",
+                    metadata={
+                        "text_length": len(req.text),
+                        "embedding_model": embedding_result.get("model", "unknown"),
+                        "embedding_dimension": len(vector)
+                    }
+                )
+            
+            return {
+                "success": True,
+                "id": req.id,
+                "project_id": project_id,
+                "collection": collection,
+                "text_length": len(req.text),
+                "embedding_dimension": len(vector),
+                "message": "Text successfully stored and made searchable!"
+            }
+            
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    
+    @router.post("/simple/{project_id}/collections/{collection}/search")
+    def simple_search_text(
+        project_id: str,
+        collection: str,
+        req: SimpleSearchTextRequest,
+        auth: AuthContext = Depends(get_current_user),
+    ):
+        """🔍 Simple API: Search by text without dealing with vectors.
+        
+        **For Beginners**: Just send your search query as text, and we'll find similar documents.
+        No need to understand vectors or embeddings!
+        
+        Example:
+        ```json
+        {
+          "query": "programming languages",
+          "limit": 5,
+          "min_score": 0.7
+        }
+        ```
+        
+        Returns matching documents sorted by similarity (1.0 = perfect match, 0.0 = no match).
+        
+        Args:
+            project_id: Your project name
+            collection: Collection to search in
+            req: Search query text and options
+            auth: Authentication (automatic)
+            
+        Returns:
+            List of matching documents with similarity scores
+        """
+        start_time = time.time()
+        
+        # Check permissions and project access
+        auth.require_permission("read:vectors")
+        auth.require_project_access(project_id)
+        
+        # Check quota
+        quota_storage = get_quota_storage()
+        if quota_storage:
+            quota_ok, reason = quota_storage.check_quota(
+                user_id=auth.user_id,
+                project_id=project_id,
+                operation_type="simple_search_text"
+            )
+            if not quota_ok:
+                usage_storage = get_usage_storage()
+                if usage_storage:
+                    usage_storage.record_operation(
+                        user_id=auth.user_id,
+                        project_id=project_id,
+                        operation_type="simple_search_text",
+                        collection_name=collection,
+                        status="quota_exceeded",
+                        metadata={"reason": reason}
+                    )
+                raise HTTPException(status_code=429, detail=f"Quota exceeded: {reason}")
+        
+        try:
+            # Generate embedding from query text
+            from ...usecases.generate_embedding import GenerateEmbeddingUC
+            from ...bootstrap import build_usecase
+            
+            embedding_uc = build_usecase()
+            
+            # Use 'query' task type for search queries
+            embedding_result = embedding_uc.embed(req.query, task_type="query", normalize=True)
+            query_vector = embedding_result["embedding"]
+            
+            # Perform vector search
+            result = search_vectors_uc.execute(
+                project_id=project_id,
+                collection=collection,
+                query_vector=query_vector,
+                limit=req.limit,
+                include_debug=False,
+            )
+            
+            # Apply minimum score filter and format results
+            filtered_results = []
+            if "data" in result:
+                for item in result["data"]:
+                    score = item.get("score", 0.0)
+                    
+                    # Convert distance to similarity (for cosine: similarity = 1 - distance)
+                    # LanceDB returns distance, where lower = more similar
+                    # We convert to similarity where higher = more similar (0.0 to 1.0)
+                    similarity = max(0.0, min(1.0, 1.0 - score))
+                    
+                    # Apply minimum score threshold
+                    if req.min_score and similarity < req.min_score:
+                        continue
+                    
+                    filtered_results.append({
+                        "id": item.get("id"),
+                        "text": item.get("document", ""),
+                        "metadata": item.get("metadata", {}),
+                        "similarity": round(similarity, 4),  # Similarity score (0.0 to 1.0)
+                    })
+            
+            # Record usage
+            duration_ms = int((time.time() - start_time) * 1000)
+            usage_storage = get_usage_storage()
+            if usage_storage:
+                usage_storage.record_operation(
+                    user_id=auth.user_id,
+                    project_id=project_id,
+                    operation_type="simple_search_text",
+                    collection_name=collection,
+                    duration_ms=duration_ms,
+                    status="success",
+                    metadata={
+                        "query_length": len(req.query),
+                        "results_count": len(filtered_results),
+                        "min_score": req.min_score
+                    }
+                )
+            
+            return {
+                "success": True,
+                "query": req.query,
+                "results": filtered_results,
+                "count": len(filtered_results),
+                "message": f"Found {len(filtered_results)} similar documents"
+            }
+            
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
     
     return router

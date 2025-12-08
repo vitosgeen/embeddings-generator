@@ -684,6 +684,179 @@ The vector database uses automatic sharding for horizontal scalability:
 
 ---
 
+## 🌟 Simple API for Beginners (No Vector Knowledge Required!)
+
+**NEW!** We've added a simplified API that lets you work with text directly without needing to understand vectors or embeddings. Perfect for beginners!
+
+### 🚀 What is the Simple API?
+
+The Simple API automatically handles all the complex vector operations for you:
+- ✅ **Just send text** - no need to generate embeddings yourself
+- ✅ **Automatic conversion** - your text is converted to vectors behind the scenes
+- ✅ **Simple search** - search by text, get similar text back
+- ✅ **No ML knowledge required** - focus on your application, not the math
+
+### 📝 Add Text (Store Documents)
+
+Store text documents without worrying about vectors:
+
+```bash
+curl -X POST http://localhost:8000/vdb/simple/my_project/collections/my_docs/add \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "id": "doc_123",
+    "text": "Python is a powerful programming language used for data science and web development.",
+    "metadata": {
+      "category": "programming",
+      "level": "beginner",
+      "author": "John"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "id": "doc_123",
+  "project_id": "my_project",
+  "collection": "my_docs",
+  "text_length": 89,
+  "embedding_dimension": 768,
+  "message": "Text successfully stored and made searchable!"
+}
+```
+
+### 🔍 Search Text (Find Similar Documents)
+
+Search for similar documents using plain text:
+
+```bash
+curl -X POST http://localhost:8000/vdb/simple/my_project/collections/my_docs/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "query": "web development languages",
+    "limit": 5,
+    "min_score": 0.5
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "query": "web development languages",
+  "results": [
+    {
+      "id": "doc_123",
+      "text": "Python is a powerful programming language used for data science and web development.",
+      "metadata": {
+        "category": "programming",
+        "level": "beginner",
+        "author": "John"
+      },
+      "similarity": 0.8723
+    },
+    {
+      "id": "doc_456",
+      "text": "JavaScript is essential for modern web development...",
+      "metadata": {
+        "category": "programming",
+        "level": "intermediate"
+      },
+      "similarity": 0.7891
+    }
+  ],
+  "count": 2,
+  "message": "Found 2 similar documents"
+}
+```
+
+### 💡 Simple API Parameters
+
+#### Add Text Endpoint: `/vdb/simple/{project_id}/collections/{collection}/add`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Unique identifier for this document (e.g., "doc_123") |
+| `text` | string | Yes | The text content to store (max 50,000 characters) |
+| `metadata` | object | No | Additional information (tags, categories, etc.) |
+
+#### Search Text Endpoint: `/vdb/simple/{project_id}/collections/{collection}/search`
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Text to search for |
+| `limit` | integer | No | 10 | Maximum results to return (1-100) |
+| `min_score` | float | No | 0.5 | Minimum similarity score (0.0-1.0, higher = more similar) |
+
+### 🎯 Use Cases
+
+**Customer Support:**
+```bash
+# Store FAQ answers
+curl -X POST .../simple/support/collections/faq/add -d '{
+  "id": "faq_1",
+  "text": "To reset your password, click on Forgot Password on the login page",
+  "metadata": {"category": "account", "priority": "high"}
+}'
+
+# Search for answers
+curl -X POST .../simple/support/collections/faq/search -d '{
+  "query": "how to change password",
+  "limit": 3
+}'
+```
+
+**Document Search:**
+```bash
+# Store documents
+curl -X POST .../simple/docs/collections/articles/add -d '{
+  "id": "article_42",
+  "text": "Machine learning enables computers to learn from data...",
+  "metadata": {"topic": "AI", "date": "2024-12-06"}
+}'
+
+# Find similar articles
+curl -X POST .../simple/docs/collections/articles/search -d '{
+  "query": "artificial intelligence and learning",
+  "min_score": 0.6
+}'
+```
+
+### ⚡ Quick Start Example
+
+```bash
+# 1. Create a project and collection (one-time setup)
+curl -X POST http://localhost:8000/vdb/projects \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"project_id": "quickstart"}'
+
+curl -X POST http://localhost:8000/vdb/projects/quickstart/collections \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"name": "docs", "dimension": 768}'
+
+# 2. Add some documents
+curl -X POST http://localhost:8000/vdb/simple/quickstart/collections/docs/add \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"id": "1", "text": "Dogs are loyal pets and great companions"}'
+
+curl -X POST http://localhost:8000/vdb/simple/quickstart/collections/docs/add \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"id": "2", "text": "Cats are independent and clean animals"}'
+
+# 3. Search for similar documents
+curl -X POST http://localhost:8000/vdb/simple/quickstart/collections/docs/search \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{"query": "pet animals"}'
+```
+
+**That's it!** No vectors, no embeddings, just text in and text out! 🎉
+
+---
+
 ## 🌐 REST API Usage (Embeddings)
 
 The service exposes a REST interface powered by **FastAPI**.  
@@ -749,6 +922,72 @@ curl -X GET http://localhost:8000/health
   "requested_by": "admin"
 }
 ```
+
+---
+
+## 🔍 Database Explorer Tool
+
+Explore your Vector Database and Auth Database with automatic shard handling - available in both web and CLI interfaces!
+
+### 🌐 Web Interface (Recommended)
+Access through the admin dashboard at **http://localhost:8000/admin/explorer**
+
+**Features**:
+- **📦 Projects Tab**: Browse all projects with collection stats and visual shard distribution
+- **🔎 Search Vector Tab**: Find vectors by ID with automatic shard detection  
+- **👥 Auth Database Tab**: View user statistics and operation counts
+- **Interactive**: Click projects to see detailed shard information
+- **Beautiful UI**: Modern design with Tailwind CSS
+
+### 💻 CLI Interface
+For scripting and automation:
+
+```bash
+# Interactive menu
+python3 scripts/db_explorer.py
+
+# Quick vector lookup
+python3 scripts/quick_lookup.py simple_test docs doc1
+
+# Generate reports
+python3 scripts/generate_report.py --format json --days 30
+```
+
+### Example Usage
+
+**Web Interface**:
+1. Open `http://localhost:8000/admin/explorer`
+2. Click on any project to see collection details
+3. Use "Search Vector" tab to find specific vectors
+4. View auth stats in "Auth Database" tab
+
+**CLI**:
+```bash
+# List all projects
+Select option: 1
+
+# View collection info and shard distribution
+Select option: 3
+Enter project ID: simple_test
+Enter collection name: docs
+# Shows: 4 shards, 4 vectors total, distributed across shards
+
+# Find a specific vector by ID
+python3 scripts/quick_lookup.py simple_test docs doc1
+# Shows: Found in shard 0, displays metadata and document
+```
+
+**Why use this tool?**
+- Vectors are distributed across shards using hash-based sharding
+- Standard DB tools (SQLite Browser, DBeaver) don't understand the sharding logic
+- This tool automatically calculates the correct shard for any vector ID
+- Provides unified view of all data with metadata parsing
+- Web interface is integrated into admin dashboard with same authentication
+
+📚 **Full documentation**: 
+- Web interface: [docs/WEB_EXPLORER_INTEGRATION.md](docs/WEB_EXPLORER_INTEGRATION.md)
+- CLI tools: [scripts/README_EXPLORER.md](scripts/README_EXPLORER.md)
+- Quick reference: [scripts/QUICK_REFERENCE.md](scripts/QUICK_REFERENCE.md)
 
 ---
 

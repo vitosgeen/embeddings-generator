@@ -1,0 +1,637 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Database Explorer{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">🔍 Database Explorer</h2>
+        <p class="mt-2 text-sm text-gray-600">
+            Explore Vector Database collections and Auth Database with automatic shard handling
+        </p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+            <button onclick="showTab('projects')" id="tab-projects" 
+                class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                📦 Projects
+            </button>
+            <button onclick="showTab('browse')" id="tab-browse"
+                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                📋 Browse Rows
+            </button>
+            <button onclick="showTab('search')" id="tab-search"
+                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                🔎 Search Vector
+            </button>
+            <button onclick="showTab('auth')" id="tab-auth"
+                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                👥 Auth Database
+            </button>
+        </nav>
+    </div>
+
+    <!-- Projects Tab -->
+    <div id="content-projects" class="tab-content">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">All Projects</h3>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                    Click a project to view its collections and shards
+                </p>
+            </div>
+            <div class="border-t border-gray-200">
+                <ul class="divide-y divide-gray-200">
+                    {% for project in projects %}
+                    <li class="px-4 py-4 hover:bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 cursor-pointer" onclick="loadProjectDetails('{{ project.id }}')">
+                                <p class="text-sm font-medium text-indigo-600">{{ project.id }}</p>
+                                <p class="text-sm text-gray-500">
+                                    {{ project.collections|length }} collections • 
+                                    {{ project.total_vectors }} vectors
+                                </p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                {% if project.collections %}
+                                <div class="text-xs text-gray-500 mr-2">
+                                    Quick browse:
+                                    {% for coll in project.collections[:3] %}
+                                    <button onclick="event.stopPropagation(); browseCollection('{{ project.id }}', '{{ coll }}')" 
+                                        class="ml-1 inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                        {{ coll }}
+                                    </button>
+                                    {% endfor %}
+                                    {% if project.collections|length > 3 %}
+                                    <span class="ml-1">+{{ project.collections|length - 3 }} more</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Project Details Modal -->
+        <div id="project-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900" id="project-modal-title">Project Details</h3>
+                    <button onclick="closeProjectModal()" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="project-modal-content" class="mt-4">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Browse Rows Tab -->
+    <div id="content-browse" class="tab-content hidden">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Browse Vector Rows</h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    View actual vector data from any collection. Use the Projects tab to see shard distribution first.
+                </p>
+                
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                💡 <strong>Tip:</strong> Click a project in the Projects tab to see which shards have data, then browse those shards here.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="browse-form" class="space-y-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Project ID</label>
+                            <input type="text" name="project_id" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Collection</label>
+                            <input type="text" name="collection" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Shard ID</label>
+                            <input type="number" name="shard_id" min="0" required value="0"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Limit</label>
+                            <select name="limit"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="10">10 rows</option>
+                                <option value="25">25 rows</option>
+                                <option value="50" selected>50 rows</option>
+                                <option value="100">100 rows</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        📋 Load Rows
+                    </button>
+                </form>
+
+                <div id="browse-results" class="mt-6 hidden">
+                    <!-- Results loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Vector Tab -->
+    <div id="content-search" class="tab-content hidden">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Search Vector by ID</h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    Find a vector across all shards (automatic shard calculation)
+                </p>
+                
+                <form id="search-form" class="space-y-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Project ID</label>
+                            <input type="text" name="project_id" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Collection</label>
+                            <input type="text" name="collection" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Vector ID</label>
+                            <input type="text" name="vector_id" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        🔍 Search Vector
+                    </button>
+                </form>
+
+                <div id="search-results" class="mt-6 hidden">
+                    <!-- Results loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Database Tab -->
+    <div id="content-auth" class="tab-content hidden">
+        <div class="space-y-6">
+            <!-- User Statistics -->
+            <div class="bg-white shadow sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">User Statistics</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Users</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Users</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for stat in user_stats %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ stat.role }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ stat.count }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ stat.active_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operation Statistics -->
+            <div class="bg-white shadow sm:rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Operation Statistics (Last 7 Days)</h3>
+                    {% if operation_stats %}
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operation</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for stat in operation_stats %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ stat.operation_type }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                            {% if stat.status == 'success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                            {{ stat.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ stat.count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500">No operation data available (usage_tracking table may not exist yet)</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab switching
+function showTab(tabName) {
+    // Hide all content
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    
+    // Reset all tab buttons
+    document.querySelectorAll('.tab-button').forEach(el => {
+        el.classList.remove('border-indigo-500', 'text-indigo-600');
+        el.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // Show selected content
+    document.getElementById('content-' + tabName).classList.remove('hidden');
+    
+    // Highlight selected tab
+    const tabButton = document.getElementById('tab-' + tabName);
+    tabButton.classList.remove('border-transparent', 'text-gray-500');
+    tabButton.classList.add('border-indigo-500', 'text-indigo-600');
+}
+
+// Load project details
+async function loadProjectDetails(projectId) {
+    try {
+        const response = await fetch(`/admin/explorer/project/${projectId}`);
+        const data = await response.json();
+        
+        document.getElementById('project-modal-title').textContent = `Project: ${projectId}`;
+        document.getElementById('project-modal-content').innerHTML = renderProjectDetails(data);
+        document.getElementById('project-modal').classList.remove('hidden');
+    } catch (error) {
+        showToast('Failed to load project details', 'error');
+    }
+}
+
+function renderProjectDetails(data) {
+    let html = '<div class="space-y-4">';
+    
+    for (const collection of data.collections) {
+        html += `
+            <div class="border rounded-lg p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-md font-medium text-gray-900">Collection: ${collection.name}</h4>
+                    <button onclick="browseCollection('${data.project_id}', '${collection.name}')" 
+                        class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        📋 Browse Rows
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm mb-3">
+                    <div><span class="font-medium">Dimension:</span> ${collection.dimension}</div>
+                    <div><span class="font-medium">Metric:</span> ${collection.metric}</div>
+                    <div><span class="font-medium">Shards:</span> ${collection.shards}</div>
+                    <div><span class="font-medium">Total Vectors:</span> ${collection.total_vectors}</div>
+                </div>
+                <div class="border-t pt-3">
+                    <p class="text-xs font-medium text-gray-500 mb-2">Shard Distribution:</p>
+                    <div class="grid grid-cols-4 gap-2">
+                        ${collection.shard_info.map(s => `
+                            <button onclick="browseShardDirect('${data.project_id}', '${collection.name}', ${s.shard_id})"
+                                class="text-center p-2 ${s.vector_count > 0 ? 'bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-not-allowed'} border rounded transition-colors"
+                                ${s.vector_count === 0 ? 'disabled' : ''}>
+                                <div class="text-xs font-medium">Shard ${s.shard_id}</div>
+                                <div class="text-lg font-bold">${s.vector_count}</div>
+                                ${s.vector_count > 0 ? '<div class="text-xs text-green-600">Click to browse</div>' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function closeProjectModal() {
+    document.getElementById('project-modal').classList.add('hidden');
+}
+
+// Browse collection - switch to Browse Rows tab and fill form
+function browseCollection(projectId, collection) {
+    // Close modal
+    closeProjectModal();
+    
+    // Switch to Browse Rows tab
+    showTab('browse');
+    
+    // Fill form with project and collection
+    const form = document.getElementById('browse-form');
+    form.elements['project_id'].value = projectId;
+    form.elements['collection'].value = collection;
+    form.elements['shard_id'].value = 0;
+    
+    // Scroll to form
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Highlight the form briefly
+    form.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'rounded-lg');
+    setTimeout(() => {
+        form.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2', 'rounded-lg');
+    }, 2000);
+}
+
+// Browse specific shard directly
+function browseShardDirect(projectId, collection, shardId) {
+    // Close modal
+    closeProjectModal();
+    
+    // Switch to Browse Rows tab
+    showTab('browse');
+    
+    // Fill form
+    const form = document.getElementById('browse-form');
+    form.elements['project_id'].value = projectId;
+    form.elements['collection'].value = collection;
+    form.elements['shard_id'].value = shardId;
+    
+    // Auto-submit
+    setTimeout(() => {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }, 100);
+}
+
+// Search vector
+document.getElementById('search-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const projectId = formData.get('project_id');
+    const collection = formData.get('collection');
+    const vectorId = formData.get('vector_id');
+    
+    try {
+        const response = await fetch(`/admin/explorer/search?project_id=${projectId}&collection=${collection}&vector_id=${vectorId}`);
+        const data = await response.json();
+        
+        const resultsDiv = document.getElementById('search-results');
+        resultsDiv.classList.remove('hidden');
+        
+        if (data.found) {
+            resultsDiv.innerHTML = `
+                <div class="border-l-4 border-green-400 bg-green-50 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3 w-full">
+                            <h3 class="text-sm font-medium text-green-800">✓ Found in shard ${data.shard_id}</h3>
+                            <div class="mt-2 text-sm text-green-700 space-y-1">
+                                <p><span class="font-semibold">ID:</span> ${data.id}</p>
+                                <p><span class="font-semibold">Document:</span> ${data.document.substring(0, 200)}${data.document.length > 200 ? '...' : ''}</p>
+                                <p><span class="font-semibold">Metadata:</span> <code class="bg-white px-2 py-1 rounded">${JSON.stringify(data.metadata)}</code></p>
+                                <p><span class="font-semibold">Vector Dimension:</span> ${data.vector_dim}</p>
+                                <p><span class="font-semibold">Created:</span> ${new Date(data.created_at * 1000).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="border-l-4 border-red-400 bg-red-50 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">✗ Vector not found</h3>
+                            <p class="mt-2 text-sm text-red-700">
+                                The vector "${vectorId}" was not found in ${projectId}/${collection}.
+                                Please check that the IDs are correct.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        showToast('Search failed: ' + error.message, 'error');
+    }
+});
+
+// Browse rows
+document.getElementById('browse-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const projectId = formData.get('project_id');
+    const collection = formData.get('collection');
+    const shardId = formData.get('shard_id');
+    const limit = formData.get('limit');
+    
+    try {
+        const response = await fetch(`/admin/explorer/rows?project_id=${projectId}&collection=${collection}&shard_id=${shardId}&limit=${limit}`);
+        const data = await response.json();
+        
+        const resultsDiv = document.getElementById('browse-results');
+        resultsDiv.classList.remove('hidden');
+        
+        if (data.success && data.rows.length > 0) {
+            let html = `
+                <div class="bg-white border rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 border-b">
+                        <h4 class="text-sm font-medium text-gray-900">
+                            ${data.rows.length} rows from ${projectId}/${collection}/shard_${shardId}
+                        </h4>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Metadata</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vector Dim</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+            `;
+            
+            for (const row of data.rows) {
+                const docPreview = row.document ? row.document.substring(0, 100) + (row.document.length > 100 ? '...' : '') : 'N/A';
+                const metadataStr = JSON.stringify(row.metadata || {});
+                const createdDate = new Date(row.created_at * 1000).toLocaleString();
+                
+                html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-4 text-sm font-medium text-gray-900 max-w-xs truncate">${row.id}</td>
+                        <td class="px-3 py-4 text-sm text-gray-500 max-w-md">
+                            <div class="truncate" title="${row.document || ''}">${docPreview}</div>
+                        </td>
+                        <td class="px-3 py-4 text-sm text-gray-500 max-w-xs">
+                            <code class="text-xs bg-gray-100 px-2 py-1 rounded">${metadataStr.substring(0, 50)}${metadataStr.length > 50 ? '...' : ''}</code>
+                        </td>
+                        <td class="px-3 py-4 text-sm text-gray-500">${row.vector_dim}</td>
+                        <td class="px-3 py-4 text-sm text-gray-500 whitespace-nowrap">${createdDate}</td>
+                        <td class="px-3 py-4 text-sm">
+                            <button onclick="viewRowDetails('${projectId}', '${collection}', '${row.id}')" 
+                                class="text-indigo-600 hover:text-indigo-900">View</button>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        } else if (data.success && data.rows.length === 0) {
+            resultsDiv.innerHTML = `
+                <div class="border-l-4 border-yellow-400 bg-yellow-50 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-yellow-800">No rows found</h3>
+                            <p class="mt-2 text-sm text-yellow-700">
+                                This shard is empty or doesn't exist yet. Try a different shard ID.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="border-l-4 border-red-400 bg-red-50 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">Error loading rows</h3>
+                            <p class="mt-2 text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        showToast('Failed to load rows: ' + error.message, 'error');
+    }
+});
+
+// View row details (reuse search modal)
+async function viewRowDetails(projectId, collection, vectorId) {
+    try {
+        const response = await fetch(`/admin/explorer/search?project_id=${projectId}&collection=${collection}&vector_id=${vectorId}`);
+        const data = await response.json();
+        
+        if (data.found) {
+            // Show in a modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+            modal.innerHTML = `
+                <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Vector Details: ${data.id}</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">ID:</label>
+                            <p class="text-sm text-gray-900 mt-1">${data.id}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Document:</label>
+                            <p class="text-sm text-gray-900 mt-1 bg-gray-50 p-3 rounded border max-h-40 overflow-y-auto">${data.document || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Metadata:</label>
+                            <pre class="text-sm text-gray-900 mt-1 bg-gray-50 p-3 rounded border overflow-x-auto">${JSON.stringify(data.metadata, null, 2)}</pre>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Vector Dimension:</label>
+                                <p class="text-sm text-gray-900 mt-1">${data.vector_dim}</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Shard:</label>
+                                <p class="text-sm text-gray-900 mt-1">${data.shard_id}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Created:</label>
+                                <p class="text-sm text-gray-900 mt-1">${new Date(data.created_at * 1000).toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Deleted:</label>
+                                <p class="text-sm text-gray-900 mt-1">${data.deleted ? 'Yes' : 'No'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    } catch (error) {
+        showToast('Failed to load details: ' + error.message, 'error');
+    }
+}
+</script>
+{% endblock %}

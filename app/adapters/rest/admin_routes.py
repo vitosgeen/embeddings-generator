@@ -1013,4 +1013,145 @@ def build_admin_router() -> APIRouter:
             "time_range": time_range
         })
     
+    # ========================================================================
+    # Database Explorer
+    # ========================================================================
+    
+    @router.get("/explorer", response_class=HTMLResponse)
+    async def explorer_page(request: Request, auth: AuthContext = Depends(get_admin_user)):
+        """Database explorer main page."""
+        from scripts.db_explorer import VDBExplorer, AuthDBExplorer
+        
+        vdb = VDBExplorer()
+        auth_db = AuthDBExplorer()
+        
+        # Get all projects with stats
+        projects = []
+        for project_id in vdb.list_projects():
+            collections = vdb.list_collections(project_id)
+            total_vectors = 0
+            
+            for collection in collections:
+                shards = vdb.get_shard_info(project_id, collection)
+                total_vectors += sum(s['vector_count'] for s in shards)
+            
+            projects.append({
+                "id": project_id,
+                "collections": collections,
+                "total_vectors": total_vectors
+            })
+        
+        # Get user stats
+        user_stats = auth_db.get_user_summary().to_dict('records')
+        
+        # Get operation stats
+        operation_stats = auth_db.get_operation_summary(days=7).to_dict('records')
+        
+        return templates.TemplateResponse("admin/explorer.html", {
+            "request": request,
+            "auth": auth,
+            "projects": projects,
+            "user_stats": user_stats,
+            "operation_stats": operation_stats
+        })
+    
+    @router.get("/explorer/project/{project_id}")
+    async def get_project_details(
+        project_id: str,
+        auth: AuthContext = Depends(get_admin_user)
+    ):
+        """Get detailed project information."""
+        from scripts.db_explorer import VDBExplorer
+        
+        vdb = VDBExplorer()
+        collections = vdb.list_collections(project_id)
+        
+        result = {
+            "project_id": project_id,
+            "collections": []
+        }
+        
+        for collection_name in collections:
+            config = vdb.get_collection_config(project_id, collection_name)
+            shards = vdb.get_shard_info(project_id, collection_name)
+            
+            total_vectors = sum(s['vector_count'] for s in shards)
+            
+            result["collections"].append({
+                "name": collection_name,
+                "dimension": config.get("dimension") if config else "N/A",
+                "metric": config.get("metric") if config else "N/A",
+                "shards": len(shards),
+                "total_vectors": total_vectors,
+                "shard_info": shards
+            })
+        
+        return result
+    
+    @router.get("/explorer/search")
+    async def search_vector(
+        project_id: str,
+        collection: str,
+        vector_id: str,
+        auth: AuthContext = Depends(get_admin_user)
+    ):
+        """Search for a vector by ID."""
+        from scripts.db_explorer import VDBExplorer
+        
+        vdb = VDBExplorer()
+        result = vdb.search_by_id(project_id, collection, vector_id)
+        
+        if result:
+            return {
+                "found": True,
+                "id": result["id"],
+                "document": result.get("document", ""),
+                "metadata": result.get("metadata", {}),
+                "vector_dim": result.get("vector_dim", 0),
+                "shard_id": result.get("shard_id", 0),
+                "created_at": result.get("created_at", 0),
+                "deleted": result.get("deleted", False)
+            }
+        else:
+            return {"found": False}
+    
+    @router.get("/explorer/rows")
+    async def get_rows(
+        project_id: str,
+        collection: str,
+        shard_id: int,
+        limit: int = 10,
+        auth: AuthContext = Depends(get_admin_user)
+    ):
+        """Get vector rows from a specific shard."""
+        from scripts.db_explorer import VDBExplorer
+        
+        vdb = VDBExplorer()
+        
+        try:
+            # Get vectors from shard
+            df = vdb.get_vectors(project_id, collection, shard_id, limit=limit, include_vectors=False)
+            
+            if df.empty:
+                return {"success": True, "rows": []}
+            
+            # Convert to list of dicts
+            rows = []
+            for _, row in df.iterrows():
+                rows.append({
+                    "id": row.get("id", ""),
+                    "document": row.get("document", ""),
+                    "metadata": row.get("metadata", {}),
+                    "vector_dim": int(row.get("vector_dim", 0)),
+                    "created_at": int(row.get("created_at", 0)),
+                    "updated_at": int(row.get("updated_at", 0)),
+                    "deleted": bool(row.get("deleted", False))
+                })
+            
+            return {"success": True, "rows": rows}
+            
+        except Exception as e:
+            logger.error(f"Error fetching rows: {e}")
+            return {"success": False, "error": str(e), "rows": []}
+    
     return router
