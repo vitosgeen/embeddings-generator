@@ -329,21 +329,35 @@ class LanceDBVectorStorage:
             db = self._get_db(shard_path)
             table = db.open_table("vectors")
             
-            # Query for the specific vector
-            results = table.search().where(f"id = '{vector_id}'").limit(1).to_list()
+            # Use PyArrow filter to retrieve vector without requiring a query vector
+            # LanceDB's search() requires a query vector, but we just need to filter by ID
+            import pyarrow.compute as pc
+            arrow_table = table.to_arrow()
+            mask = pc.equal(arrow_table['id'], vector_id)
+            filtered = arrow_table.filter(mask)
             
-            if not results or results[0].get("deleted", False):
+            if filtered.num_rows == 0:
                 return None
             
-            row = results[0]
+            # Get the first (and should be only) matching row
+            row = filtered.to_pylist()[0]
+            
+            # Check if deleted
+            if row.get("deleted", False):
+                return None
+            
             return VectorRecord(
                 id=row["id"],
-                embedding=row["vector"].tolist() if hasattr(row["vector"], 'tolist') else list(row["vector"]),
+                vector=row["vector"],
                 metadata=json.loads(row.get("metadata", "{}")),
                 document=row.get("document") if row.get("document") else None,
             )
         
-        except Exception:
+        except Exception as e:
+            # Log the exception for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in get_vector for {vector_id}: {type(e).__name__}: {e}")
             return None
     
     def delete_vector(

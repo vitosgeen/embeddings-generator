@@ -715,7 +715,7 @@ def build_vdb_router(
         try:
             # Get the reference vector
             from ...domain.vdb import ProjectId, CollectionName
-            vector_record = search_vectors_uc.storage.get_vector(
+            vector_record = search_vectors_uc.vector_storage.get_vector(
                 project_id=ProjectId(project_id),
                 collection=CollectionName(collection),
                 vector_id=req.vector_id,
@@ -731,7 +731,7 @@ def build_vdb_router(
             result = search_vectors_uc.execute(
                 project_id=project_id,
                 collection=collection,
-                query_vector=vector_record.embedding,
+                query_vector=vector_record.vector,
                 limit=req.limit + 1,  # Get one extra to exclude the reference
                 include_debug=False,
             )
@@ -1366,6 +1366,7 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions and project access
+        auth.require_permission("write:vectors")
         auth.require_project_access(project_id)
         
         # Check quota
@@ -1374,7 +1375,7 @@ def build_vdb_router(
             quota_ok, reason = quota_storage.check_quota(
                 user_id=auth.user_id,
                 project_id=project_id,
-                operation_type="add_vector",
+                operation_type="simple_add_text",
                 vector_count=1
             )
             if not quota_ok:
@@ -1480,6 +1481,7 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions and project access
+        auth.require_permission("read:vectors")
         auth.require_project_access(project_id)
         
         # Check quota
@@ -1488,7 +1490,7 @@ def build_vdb_router(
             quota_ok, reason = quota_storage.check_quota(
                 user_id=auth.user_id,
                 project_id=project_id,
-                operation_type="search_vectors"
+                operation_type="simple_search_text"
             )
             if not quota_ok:
                 usage_storage = get_usage_storage()
