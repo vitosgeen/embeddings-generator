@@ -503,36 +503,32 @@
                 
                 <div class="test-section">
                     <h3>Add Vectors</h3>
-                    <p><span class="method post">POST</span> <code>/vdb/vectors</code> - Store a vector in the database</p>
+                    <p><span class="method post">POST</span> <code>/vdb/projects/{project_id}/collections/{collection}/add</code> - Store a vector in the database</p>
                     
                     <div class="curl-example">
                         <h4>cURL Example:</h4>
-                        <pre><code id="addVectorCurl">curl -X POST http://localhost:8000/vdb/vectors \
+                        <pre><code id="addVectorCurl">curl -X POST http://localhost:8000/vdb/projects/test-project/collections/documents/add \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "project_id": "test-project",
-    "collection_name": "documents",
-    "vector_id": "doc-1",
-    "vector": [0.1, 0.2, ...],  # 768 dimensions
+    "id": "doc-1",
+    "embedding": [0.1, 0.2, ...],
     "metadata": {"text": "Original text"}
   }'</code></pre>
                         <button class="copy-btn" onclick="copyToClipboard('addVectorCurl')">Copy</button>
                     </div>
                     
                     <h4 style="margin-top: 1.5rem;">Search Vectors</h4>
-                    <p><span class="method post">POST</span> <code>/vdb/search</code> - Find similar vectors</p>
+                    <p><span class="method post">POST</span> <code>/vdb/projects/{project_id}/collections/{collection}/search</code> - Find similar vectors</p>
                     
                     <div class="curl-example">
                         <h4>cURL Example:</h4>
-                        <pre><code id="searchVectorCurl">curl -X POST http://localhost:8000/vdb/search \
+                        <pre><code id="searchVectorCurl">curl -X POST http://localhost:8000/vdb/projects/test-project/collections/documents/search \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "project_id": "test-project",
-    "collection_name": "documents",
-    "query_vector": [0.1, 0.2, ...],  # 768 dimensions
-    "top_k": 5
+    "query_vector": [0.1, 0.2, ...],
+    "limit": 5
   }'</code></pre>
                         <button class="copy-btn" onclick="copyToClipboard('searchVectorCurl')">Copy</button>
                     </div>
@@ -776,11 +772,9 @@ Natural language processing handles text data.</textarea>
             }
             
             // Then add to VDB
-            const result = await makeRequest('/vdb/vectors', 'POST', {
-                project_id: projectId,
-                collection_name: collectionName,
-                vector_id: vectorId,
-                vector: embedResult.data.embedding,
+            const result = await makeRequest(`/vdb/projects/${projectId}/collections/${collectionName}/add`, 'POST', {
+                id: vectorId,
+                embedding: embedResult.data.embedding,
                 metadata: { text }
             });
             
@@ -800,11 +794,9 @@ Natural language processing handles text data.</textarea>
             }
             
             // Then search
-            const result = await makeRequest('/vdb/search', 'POST', {
-                project_id: projectId,
-                collection_name: collectionName,
+            const result = await makeRequest(`/vdb/projects/${projectId}/collections/${collectionName}/search`, 'POST', {
                 query_vector: embedResult.data.embedding,
-                top_k: 5
+                limit: 5
             });
             
             showResponse('vectorResponse', result);

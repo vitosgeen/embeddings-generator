@@ -45,25 +45,26 @@ class TestRole:
         """Test service-app role has full operational permissions."""
         permissions = Role.SERVICE_APP.get_permissions()
         assert "read:projects" in permissions
+        assert "write:projects" in permissions  # Can create projects
         assert "read:collections" in permissions
         assert "write:collections" in permissions
         assert "write:vectors" in permissions
         assert "delete:vectors" in permissions
         assert "search:vectors" in permissions
-        # Should not have admin or project creation permissions
+        # Should not have admin permissions
         assert "admin:users" not in permissions
-        assert "write:projects" not in permissions
     
     def test_role_permissions_project_owner(self):
         """Test project-owner role has project-scoped permissions."""
         permissions = Role.PROJECT_OWNER.get_permissions()
+        assert "write:projects" in permissions  # Can create their own projects
         assert "read:project" in permissions  # Note: singular 'project'
         assert "read:collections" in permissions
         assert "write:collections" in permissions
         assert "write:vectors" in permissions
         assert "delete:vectors" in permissions
-        # Should not have project creation or admin permissions
-        assert "write:projects" not in permissions
+        assert "search:vectors" in permissions
+        # Should not have admin permissions
         assert "admin:users" not in permissions
 
 

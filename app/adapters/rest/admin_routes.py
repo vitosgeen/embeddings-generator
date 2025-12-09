@@ -649,7 +649,31 @@ def build_admin_router() -> APIRouter:
             if not owner:
                 raise HTTPException(status_code=404, detail="Owner user not found")
             
-            # Create project
+            # Create in VDB file storage first (fail fast if VDB issues)
+            from app.bootstrap import build_vdb_usecases
+            vdb_usecases = build_vdb_usecases()
+            create_project_uc = vdb_usecases["create_project"]
+            try:
+                create_project_uc.execute(
+                    project_id=project_id,
+                    metadata={
+                        "name": name,
+                        "description": description,
+                        "owner_user_id": owner_user_id,
+                    }
+                )
+            except Exception as e:
+                # VDB creation failed, don't create in SQLite
+                users = _user_storage.list_users()
+                return templates.TemplateResponse("admin/project_form.html", {
+                    "request": request,
+                    "auth": auth,
+                    "project": None,
+                    "users": users,
+                    "error": f"Failed to create VDB project: {str(e)}",
+                })
+            
+            # VDB creation succeeded, now create in SQLite
             project = _project_storage.create_project(
                 project_id=project_id,
                 owner_user_id=owner_user_id,
@@ -863,6 +887,23 @@ def build_admin_router() -> APIRouter:
         from app.bootstrap import build_vdb_usecases
         
         vdb_usecases = build_vdb_usecases()
+        
+        # Ensure project exists in VDB file storage (for backward compatibility)
+        create_project_uc = vdb_usecases["create_project"]
+        try:
+            create_project_uc.execute(
+                project_id=project_id,
+                metadata={
+                    "name": project.name,
+                    "description": project.description,
+                    "owner_user_id": project.owner_user_id,
+                }
+            )
+        except ValueError as e:
+            # Project already exists in VDB storage, that's fine
+            if "already exists" not in str(e):
+                raise
+        
         create_collection_uc = vdb_usecases["create_collection"]
         
         try:
@@ -912,7 +953,9 @@ def build_admin_router() -> APIRouter:
             })
             
         except Exception as e:
+            import traceback
             logger.error(f"Error creating collection: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             _audit_storage.create_log(
                 action="collection_created",
                 user_id=auth.user_id,

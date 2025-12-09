@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, JSONResponse
 from pydantic import BaseModel
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC, MultiModelEmbeddingUC
@@ -38,6 +38,14 @@ def build_fastapi(uc: Union[GenerateEmbeddingUC, MultiModelEmbeddingUC], vdb_use
         description="Generate embeddings and store/search vectors",
         version="2.0.0",
     )
+    
+    # Add global exception handler for PermissionError
+    @app.exception_handler(PermissionError)
+    async def permission_error_handler(request: Request, exc: PermissionError):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": str(exc)}
+        )
     
     # Add authentication middleware
     app.add_middleware(AuthenticationMiddleware)

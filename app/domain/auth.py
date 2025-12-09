@@ -67,6 +67,7 @@ class Role(str, Enum):
             ],
             Role.SERVICE_APP: [
                 "read:projects",
+                "write:projects",  # Allow service apps to create projects
                 "read:collections",
                 "write:collections",
                 "write:vectors",
@@ -74,6 +75,7 @@ class Role(str, Enum):
                 "search:vectors",
             ],
             Role.PROJECT_OWNER: [
+                "write:projects",  # Allow project owners to create their own projects
                 "read:project",
                 "read:collections",
                 "write:collections",
