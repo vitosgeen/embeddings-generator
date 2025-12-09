@@ -258,7 +258,7 @@ curl -X GET "{{ base_url }}/health"
             <div class="code-block">
 {
   "model_id": "BAAI/bge-m3",
-  "dim": 768,
+  "dim": 1024,
   "embedding": [0.1234, -0.5678, ...],
   "requested_by": "admin"
 }
@@ -275,12 +275,12 @@ curl -X GET "{{ base_url }}/health"
     </div>
     
     <script>
-        // Dynamic content loading - v1.1
+        // Dynamic content loading with timeout and error handling
         const baseUrl = window.location.origin;
         
         // Update base URL in code examples
         document.querySelectorAll('.code-block').forEach(block => {
-            block.innerHTML = block.innerHTML.replace('{{ base_url }}', baseUrl);
+            block.innerHTML = block.innerHTML.replace(/{{ base_url }}/g, baseUrl);
         });
         
         // Check service health and update status with timeout

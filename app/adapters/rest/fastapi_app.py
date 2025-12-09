@@ -28,11 +28,8 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
     
     @app.get("/favicon.ico")
     async def favicon():
-        # Simple SVG favicon with brain/AI theme
-        svg_content = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="#667eea"/>
-            <text x="50" y="50" font-size="60" text-anchor="middle" dominant-baseline="central">🧠</text>
-        </svg>'''
+        # Simple SVG favicon with brain/AI theme (browser-safe, no emoji)
+        svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#667eea"/><circle cx="35" cy="45" r="8" fill="white"/><circle cx="65" cy="45" r="8" fill="white"/></svg>'
         return Response(content=svg_content, media_type="image/svg+xml")
 
     @app.get("/health")
