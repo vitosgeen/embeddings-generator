@@ -178,27 +178,35 @@ def build_vdb_router(
         # Check permissions (PermissionError will be caught by global handler)
         auth.require_permission("write:projects")
         
+        # Validate project ID early (ProjectId will raise ValueError for invalid IDs)
+        from ...domain.vdb import ProjectId
         try:
-            # Create in VDB file storage
-            result = create_project_uc.execute(
-                project_id=req.project_id,
-                metadata=req.metadata,
-            )
-            
-            # Also register in auth database for access control
+            ProjectId(req.project_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        try:
+            # Register in auth database first for access control
             user_storage, key_storage, audit_storage, project_storage = get_auth_storages()
+            auth_project_created = False
+            
             if project_storage:
                 existing_project = project_storage.get_project_by_id(req.project_id)
                 
-                if not existing_project:
-                    # Extract owner info from metadata or use current user
-                    owner_user_id = req.metadata.get("owner_user_id", auth.user_id) if req.metadata else auth.user_id
+                if existing_project:
+                    raise HTTPException(status_code=400, detail=f"Project '{req.project_id}' already exists")
+                
+                # Extract owner info from metadata or use current user
+                owner_user_id = req.metadata.get("owner_user_id", auth.user_id) if req.metadata else auth.user_id
+                
+                try:
                     project_storage.create_project(
                         project_id=req.project_id,
                         owner_user_id=owner_user_id,
                         name=req.metadata.get("name") if req.metadata else None,
                         description=req.metadata.get("description") if req.metadata else None,
                     )
+                    auth_project_created = True
                     
                     # Grant the creator access to the project (if not the owner already)
                     if auth.user_id and auth.user_id != owner_user_id:
@@ -211,8 +219,30 @@ def build_vdb_router(
                             )
                         except Exception:
                             pass  # Already has access or user doesn't exist
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to register project in auth database: {str(e)}")
             
-            return result
+            # Now create in VDB file storage
+            try:
+                result = create_project_uc.execute(
+                    project_id=req.project_id,
+                    metadata=req.metadata,
+                )
+                return result
+            except Exception as e:
+                # VDB creation failed, rollback auth DB entry
+                if auth_project_created and project_storage:
+                    try:
+                        project_storage.delete_project(req.project_id)
+                    except Exception as rollback_error:
+                        import logging
+                        logging.getLogger(__name__).error(
+                            f"Failed to rollback auth DB project after VDB creation failure: {rollback_error}"
+                        )
+                raise HTTPException(status_code=500, detail=f"Failed to create VDB project: {str(e)}")
+                
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:

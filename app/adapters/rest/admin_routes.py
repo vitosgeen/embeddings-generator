@@ -649,25 +649,36 @@ def build_admin_router() -> APIRouter:
             if not owner:
                 raise HTTPException(status_code=404, detail="Owner user not found")
             
-            # Create project in SQLite
+            # Create in VDB file storage first (fail fast if VDB issues)
+            from app.bootstrap import build_vdb_usecases
+            vdb_usecases = build_vdb_usecases()
+            create_project_uc = vdb_usecases["create_project"]
+            try:
+                create_project_uc.execute(
+                    project_id=project_id,
+                    metadata={
+                        "name": name,
+                        "description": description,
+                        "owner_user_id": owner_user_id,
+                    }
+                )
+            except Exception as e:
+                # VDB creation failed, don't create in SQLite
+                users = _user_storage.list_users()
+                return templates.TemplateResponse("admin/project_form.html", {
+                    "request": request,
+                    "auth": auth,
+                    "project": None,
+                    "users": users,
+                    "error": f"Failed to create VDB project: {str(e)}",
+                })
+            
+            # VDB creation succeeded, now create in SQLite
             project = _project_storage.create_project(
                 project_id=project_id,
                 owner_user_id=owner_user_id,
                 name=name if name else None,
                 description=description if description else None,
-            )
-            
-            # Also create project in VDB file storage
-            from app.bootstrap import build_vdb_usecases
-            vdb_usecases = build_vdb_usecases()
-            create_project_uc = vdb_usecases["create_project"]
-            create_project_uc.execute(
-                project_id=project_id,
-                metadata={
-                    "name": name,
-                    "description": description,
-                    "owner_user_id": owner_user_id,
-                }
             )
             
             # Log the action
