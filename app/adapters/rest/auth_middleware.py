@@ -180,8 +180,9 @@ async def authenticate_request(
             user_storage, key_storage, audit_storage, project_storage = get_auth_storages()
             user_projects = project_storage.list_user_projects(user.id, active_only=True)
             accessible_projects = [proj.project_id for proj, _ in user_projects]
+            logger.debug(f"User {user.username} (id={user.id}) has access to projects: {accessible_projects}")
         except Exception as e:
-            logger.error(f"Failed to load user projects: {e}")
+            logger.error(f"Failed to load user projects: {e}", exc_info=True)
     
     # Update last_used_at timestamp (async, non-blocking)
     try:

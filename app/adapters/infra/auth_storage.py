@@ -1045,9 +1045,10 @@ class ProjectStorage:
             active_only: If True, only return active projects
             
         Returns:
-            List of tuples: (Project, UserProject)
+            List of tuples: (Project, UserProject or None)
         """
         with self.db.get_session() as session:
+            # Get projects with explicit access grants
             query = session.query(Project, UserProject).join(
                 UserProject, Project.id == UserProject.project_id
             ).filter(
@@ -1057,7 +1058,32 @@ class ProjectStorage:
             if active_only:
                 query = query.filter(Project.active == True)
             
-            return query.order_by(Project.created_at.desc()).all()
+            explicit_access = query.all()
+            
+            # Get projects where user is the owner (implicit access)
+            owner_query = session.query(Project).filter(
+                Project.owner_user_id == user_id
+            )
+            
+            if active_only:
+                owner_query = owner_query.filter(Project.active == True)
+            
+            owned_projects = owner_query.all()
+            
+            # Combine results, avoiding duplicates
+            result = list(explicit_access)
+            explicit_project_ids = {proj.id for proj, _ in explicit_access}
+            
+            # Add owned projects that aren't already in explicit access
+            for project in owned_projects:
+                if project.id not in explicit_project_ids:
+                    # Add with None for UserProject since it's owner access
+                    result.append((project, None))
+            
+            # Sort by created_at descending
+            result.sort(key=lambda x: x[0].created_at, reverse=True)
+            
+            return result
 
     def check_user_project_access(self, user_id: int, project_id: str) -> Optional[str]:
         """Check if a user has access to a project and return their role.

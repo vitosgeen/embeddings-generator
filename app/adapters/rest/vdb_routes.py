@@ -175,14 +175,44 @@ def build_vdb_router(
         Each project has its own directory and metadata.
         Requires admin or service-app role.
         """
-        # Check permissions
+        # Check permissions (PermissionError will be caught by global handler)
         auth.require_permission("write:projects")
         
         try:
-            return create_project_uc.execute(
+            # Create in VDB file storage
+            result = create_project_uc.execute(
                 project_id=req.project_id,
                 metadata=req.metadata,
             )
+            
+            # Also register in auth database for access control
+            user_storage, key_storage, audit_storage, project_storage = get_auth_storages()
+            if project_storage:
+                existing_project = project_storage.get_project_by_id(req.project_id)
+                
+                if not existing_project:
+                    # Extract owner info from metadata or use current user
+                    owner_user_id = req.metadata.get("owner_user_id", auth.user_id) if req.metadata else auth.user_id
+                    project_storage.create_project(
+                        project_id=req.project_id,
+                        owner_user_id=owner_user_id,
+                        name=req.metadata.get("name") if req.metadata else None,
+                        description=req.metadata.get("description") if req.metadata else None,
+                    )
+                    
+                    # Grant the creator access to the project (if not the owner already)
+                    if auth.user_id and auth.user_id != owner_user_id:
+                        try:
+                            project_storage.grant_project_access(
+                                user_id=auth.user_id,
+                                project_id=req.project_id,
+                                role="project-owner",
+                                granted_by=auth.user_id
+                            )
+                        except Exception:
+                            pass  # Already has access or user doesn't exist
+            
+            return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
@@ -393,13 +423,21 @@ def build_vdb_router(
         Performs similarity search across all shards in the collection
         and returns the top-k most similar vectors.
         Supports metadata filtering to narrow results.
-        Requires read:vectors permission and project access.
+        Requires search:vectors permission and project access.
         """
         start_time = time.time()
-        auth.require_permission("read:vectors")
+        auth.require_permission("search:vectors")
         
         # Check project access
         if not auth.can_access_project(project_id):
+            # Log for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Access denied: User {auth.username} (id={auth.user_id}, role={auth.role}) "
+                f"tried to access project '{project_id}'. "
+                f"Accessible projects: {auth.accessible_projects}"
+            )
             raise HTTPException(
                 status_code=403,
                 detail=f"Access denied to project '{project_id}'",
@@ -514,10 +552,10 @@ def build_vdb_router(
         - "Show documents related to 'machine learning'"
         - "Get recommendations based on this description"
         
-        Requires read:vectors permission and project access.
+        Requires search:vectors permission and project access.
         """
         start_time = time.time()
-        auth.require_permission("read:vectors")
+        auth.require_permission("search:vectors")
         
         # Check project access
         if not auth.can_access_project(project_id):
@@ -681,7 +719,7 @@ def build_vdb_router(
         Requires read:vectors permission and project access.
         """
         start_time = time.time()
-        auth.require_permission("read:vectors")
+        auth.require_permission("search:vectors")
         
         # Check project access
         if not auth.can_access_project(project_id):
@@ -1481,7 +1519,7 @@ def build_vdb_router(
         start_time = time.time()
         
         # Check permissions and project access
-        auth.require_permission("read:vectors")
+        auth.require_permission("search:vectors")
         auth.require_project_access(project_id)
         
         # Check quota
