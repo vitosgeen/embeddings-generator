@@ -83,9 +83,9 @@ setup: deps
 	@echo ""
 
 .PHONY: check-deps
-check-deps:
+check-deps: venv
 	@echo "🔍 Checking dependencies..."
-	@$(PYTHON) scripts/check_dependencies.py
+	@$(VENV_BIN)/python scripts/check_dependencies.py
 
 # -----------------------------
 # ⚙️ Proto generation
