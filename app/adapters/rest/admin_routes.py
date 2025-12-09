@@ -708,6 +708,22 @@ def build_admin_router() -> APIRouter:
         # Get all users for granting access
         all_users = _user_storage.list_users()
         
+        # Get collections from VDB
+        from scripts.db_explorer import VDBExplorer
+        vdb = VDBExplorer()
+        collection_names = vdb.list_collections(project_id)
+        
+        # Get collection details
+        collections = []
+        for coll_name in collection_names:
+            shard_info = vdb.get_shard_info(project_id, coll_name)
+            total_vectors = sum(s['vector_count'] for s in shard_info)
+            collections.append({
+                'name': coll_name,
+                'shards': len(shard_info),
+                'vector_count': total_vectors
+            })
+        
         return templates.TemplateResponse("admin/project_detail.html", {
             "request": request,
             "auth": auth,
@@ -715,6 +731,7 @@ def build_admin_router() -> APIRouter:
             "owner": owner,
             "project_users": project_users,
             "all_users": all_users,
+            "collections": collections,
         })
     
     @router.post("/projects/{project_id}/grant-access", response_class=HTMLResponse)
@@ -798,6 +815,115 @@ def build_admin_router() -> APIRouter:
         )
         
         return {"status": "success", "message": f"Access revoked for {user.username}"}
+    
+    @router.get("/projects/{project_id}/collections/new", response_class=HTMLResponse)
+    async def new_collection_form(
+        request: Request,
+        project_id: str,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Show form to create new collection."""
+        auth.require_permission("admin:users")
+        
+        project = _project_storage.get_project_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        return templates.TemplateResponse("admin/collection_form.html", {
+            "request": request,
+            "auth": auth,
+            "project_id": project_id,
+        })
+    
+    @router.post("/projects/{project_id}/collections", response_class=HTMLResponse)
+    async def create_collection(
+        request: Request,
+        project_id: str,
+        collection_name: str = Form(...),
+        shards: int = Form(4),
+        description: str = Form(""),
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Create a new collection in the project."""
+        auth.require_permission("admin:users")
+        
+        project = _project_storage.get_project_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Validate collection name
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', collection_name):
+            raise HTTPException(
+                status_code=400,
+                detail="Collection name must contain only letters, numbers, underscores, and hyphens"
+            )
+        
+        # Create collection using VDB use case
+        from app.bootstrap import build_vdb_usecases
+        
+        vdb_usecases = build_vdb_usecases()
+        create_collection_uc = vdb_usecases["create_collection"]
+        
+        try:
+            # Create collection with config
+            # Using 768 dimensions (default fast model: multilingual-e5-base)
+            create_collection_uc.execute(
+                project_id=project_id,
+                name=collection_name,
+                dimension=768,
+                metric="cosine",
+                shards=shards,
+                description=description
+            )
+            
+            _audit_storage.create_log(
+                action="collection_created",
+                user_id=auth.user_id,
+                status="success",
+                details={
+                    "project_id": project_id,
+                    "collection": collection_name,
+                    "shards": shards,
+                    "description": description,
+                },
+            )
+            
+            # Get updated collections list
+            from scripts.db_explorer import VDBExplorer
+            vdb = VDBExplorer()
+            collection_names = vdb.list_collections(project_id)
+            
+            collections = []
+            for coll_name in collection_names:
+                shard_info = vdb.get_shard_info(project_id, coll_name)
+                total_vectors = sum(s['vector_count'] for s in shard_info)
+                collections.append({
+                    'name': coll_name,
+                    'shards': len(shard_info),
+                    'vector_count': total_vectors
+                })
+            
+            # Return updated collections list
+            return templates.TemplateResponse("admin/collections_list.html", {
+                "request": request,
+                "project": project,
+                "collections": collections,
+            })
+            
+        except Exception as e:
+            logger.error(f"Error creating collection: {e}")
+            _audit_storage.create_log(
+                action="collection_created",
+                user_id=auth.user_id,
+                status="error",
+                details={
+                    "project_id": project_id,
+                    "collection": collection_name,
+                    "error": str(e),
+                },
+            )
+            raise HTTPException(status_code=500, detail=f"Failed to create collection: {str(e)}")
     
     @router.post("/projects/{project_id}/deactivate")
     async def deactivate_project(
