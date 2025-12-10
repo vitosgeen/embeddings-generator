@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
+# NOTE: Set your API key in the environment variable 'API_KEY' before running this script.
+# Example: export API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY
+# Or run: API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY python3 tests/manual/test_embed_with_chunking.py
 """Test the /embed endpoint with chunking parameter"""
 
+import os
 import requests
-import json
 
 url = "http://127.0.0.1:8000/embed"
+api_key = os.getenv('API_KEY', 'sk-admin-REPLACE-WITH-SECURE-KEY')
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer sk-admin-REPLACE-WITH-SECURE-KEY"
+    "Authorization": f"Bearer {api_key}"
 }
 
 long_text = "Machine learning is transforming the world. " * 50

@@ -279,3 +279,178 @@ class TestFastAPIIntegration:
         data = response.json()
         assert "embedding" in data
         assert "requested_by" in data
+
+    # Tests for /embed/chunked endpoint
+    def test_embed_chunked_short_text(self, client, auth_headers):
+        """Test /embed/chunked with short text."""
+        payload = {
+            "text": "This is a short text.",
+            "task_type": "passage",
+            "normalize": True,
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "model_id" in data
+        assert "dim" in data
+        assert "embedding" in data
+        assert "chunk_count" in data
+        assert "aggregation" in data
+        assert "chunks" in data
+        assert "requested_by" in data
+        assert data["requested_by"] == "test_user"
+        assert data["chunk_count"] == 1
+        assert data["aggregation"] == "mean"
+        assert len(data["chunks"]) == 1
+
+    def test_embed_chunked_long_text(self, client, auth_headers):
+        """Test /embed/chunked with long text requiring multiple chunks."""
+        long_text = "This is a test sentence. " * 100
+        payload = {
+            "text": long_text,
+            "chunk_size": 200,
+            "chunk_overlap": 20,
+            "task_type": "passage",
+            "normalize": True,
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["chunk_count"] > 1
+        assert len(data["chunks"]) == data["chunk_count"]
+        assert "aggregation" in data
+        assert data["aggregation"] == "mean"
+
+        # Verify chunk structure
+        for i, chunk in enumerate(data["chunks"]):
+            assert "index" in chunk
+            assert "text_preview" in chunk
+            assert "length" in chunk
+            assert "embedding" in chunk
+            assert chunk["index"] == i
+            assert isinstance(chunk["embedding"], list)
+            assert len(chunk["embedding"]) == data["dim"]
+
+    def test_embed_chunked_empty_text(self, client, auth_headers):
+        """Test /embed/chunked with empty text."""
+        payload = {
+            "text": "",
+            "task_type": "passage",
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 400
+        assert "detail" in response.json()
+
+    def test_embed_chunked_whitespace_only(self, client, auth_headers):
+        """Test /embed/chunked with whitespace-only text."""
+        payload = {
+            "text": "   \n\t  ",
+            "task_type": "passage",
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 400
+        assert "detail" in response.json()
+
+    def test_embed_chunked_custom_chunk_params(self, client, auth_headers):
+        """Test /embed/chunked with custom chunk_size and chunk_overlap."""
+        text = "Sentence one. Sentence two. Sentence three. Sentence four."
+        payload = {
+            "text": text,
+            "chunk_size": 30,
+            "chunk_overlap": 5,
+            "task_type": "passage",
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "chunk_count" in data
+        assert "chunks" in data
+
+    def test_embed_chunked_no_normalization(self, client, auth_headers):
+        """Test /embed/chunked with normalize=False."""
+        payload = {
+            "text": "Test text for chunking without normalization.",
+            "normalize": False,
+            "task_type": "passage",
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "embedding" in data
+        assert "chunk_count" in data
+
+    def test_embed_chunked_response_structure(self, client, auth_headers):
+        """Test that /embed/chunked returns complete response structure."""
+        payload = {
+            "text": "Test sentence one. Test sentence two.",
+            "chunk_size": 25,
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check all required fields
+        required_fields = ["model_id", "dim", "embedding", "chunk_count", "aggregation", "chunks", "requested_by"]
+        for field in required_fields:
+            assert field in data
+
+        # Check aggregated embedding
+        assert isinstance(data["embedding"], list)
+        assert len(data["embedding"]) == data["dim"]
+
+    def test_embed_with_chunking_enabled(self, client, auth_headers):
+        """Test /embed endpoint with chunking parameter enabled."""
+        long_text = "This is a sentence. " * 50
+        payload = {
+            "text": long_text,
+            "chunking": True,
+            "chunk_size": 150,
+            "chunk_overlap": 15,
+        }
+
+        response = client.post("/embed", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # When chunking is enabled, response should include chunk metadata
+        assert "chunk_count" in data
+        assert "aggregation" in data
+        assert "chunks" in data
+        assert data["chunk_count"] > 1
+
+    def test_embed_with_chunking_disabled(self, client, auth_headers):
+        """Test /embed endpoint with chunking parameter disabled."""
+        long_text = "This is a sentence. " * 50
+        payload = {
+            "text": long_text,
+            "chunking": False,
+        }
+
+        response = client.post("/embed", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # When chunking is disabled, response should NOT include chunk metadata
+        assert "chunk_count" not in data
+        assert "aggregation" not in data
+        assert "chunks" not in data
+        assert "embedding" in data
+

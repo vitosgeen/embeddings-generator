@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
 from ...auth import get_current_user
@@ -14,17 +15,33 @@ class EmbedReq(BaseModel):
     texts: Optional[List[str]] = None
     task_type: str = "passage"
     normalize: bool = True
-    chunking: bool = True  # Enable chunking by default
-    chunk_size: int = 1000
-    chunk_overlap: int = 100
+    chunking: bool = False  # Disable chunking by default for backward compatibility
+    chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative)")
+
+    @field_validator('chunk_overlap')
+    @classmethod
+    def validate_overlap(cls, v, info):
+        """Validate that chunk_overlap is less than chunk_size."""
+        if 'chunk_size' in info.data and v >= info.data['chunk_size']:
+            raise ValueError('chunk_overlap must be less than chunk_size')
+        return v
 
 
 class EmbedChunkedReq(BaseModel):
     text: str
     task_type: str = "passage"
     normalize: bool = True
-    chunk_size: int = 1000
-    chunk_overlap: int = 100
+    chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative)")
+
+    @field_validator('chunk_overlap')
+    @classmethod
+    def validate_overlap(cls, v, info):
+        """Validate that chunk_overlap is less than chunk_size."""
+        if 'chunk_size' in info.data and v >= info.data['chunk_size']:
+            raise ValueError('chunk_overlap must be less than chunk_size')
+        return v
 
 
 def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
