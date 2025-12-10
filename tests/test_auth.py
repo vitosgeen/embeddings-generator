@@ -17,7 +17,8 @@ def mock_uc():
         "status": "ok",
         "model_id": "test-model",
         "device": "cpu",
-        "dim": 768
+        "dim": 768,
+        "batch_size": 32
     }
     
     # Mock the embed method
@@ -25,6 +26,21 @@ def mock_uc():
         "model_id": "test-model",
         "dim": 768,
         "embedding": [0.1, 0.2, 0.3]
+    }
+    
+    # Mock the embed_chunked method (used when chunking=true)
+    uc.embed_chunked.return_value = {
+        "model_id": "test-model",
+        "dim": 768,
+        "embedding": [0.1, 0.2, 0.3],
+        "chunk_count": 1,
+        "aggregation": "mean",
+        "chunks": [{
+            "index": 0,
+            "text_preview": "test text",
+            "length": 9,
+            "embedding": [0.1, 0.2, 0.3]
+        }]
     }
     
     # Mock the embed_batch method

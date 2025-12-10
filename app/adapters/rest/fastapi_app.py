@@ -14,6 +14,17 @@ class EmbedReq(BaseModel):
     texts: Optional[List[str]] = None
     task_type: str = "passage"
     normalize: bool = True
+    chunking: bool = True  # Enable chunking by default
+    chunk_size: int = 1000
+    chunk_overlap: int = 100
+
+
+class EmbedChunkedReq(BaseModel):
+    text: str
+    task_type: str = "passage"
+    normalize: bool = True
+    chunk_size: int = 1000
+    chunk_overlap: int = 100
 
 
 def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
@@ -47,12 +58,25 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
         if not items:
             raise HTTPException(status_code=400, detail="Provide 'text' or 'texts'")
 
+        # Single text handling
         if len(items) == 1:
-            result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
+            # Use chunking if enabled
+            if req.chunking:
+                result = uc.embed_chunked(
+                    items[0],
+                    task_type=req.task_type,
+                    normalize=req.normalize,
+                    chunk_size=req.chunk_size,
+                    chunk_overlap=req.chunk_overlap,
+                )
+            else:
+                result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
+            
             # Add metadata about the request
             result["requested_by"] = current_user
             return result
         else:
+            # Batch processing (no chunking for multiple texts)
             res = uc.embed_batch(
                 items, task_type=req.task_type, normalize=req.normalize
             )
@@ -62,5 +86,24 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
                 "embeddings": [it["embedding"] for it in res["items"]],
                 "requested_by": current_user,
             }
+
+    @app.post("/embed/chunked")
+    def embed_chunked(req: EmbedChunkedReq, current_user: str = Depends(get_current_user)):
+        """
+        Embed long text by automatically chunking and aggregating.
+        Returns aggregated embedding and metadata about chunks.
+        """
+        if not req.text or not req.text.strip():
+            raise HTTPException(status_code=400, detail="Provide 'text'")
+        
+        result = uc.embed_chunked(
+            req.text.strip(),
+            task_type=req.task_type,
+            normalize=req.normalize,
+            chunk_size=req.chunk_size,
+            chunk_overlap=req.chunk_overlap,
+        )
+        result["requested_by"] = current_user
+        return result
 
     return app
