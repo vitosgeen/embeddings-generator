@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # NOTE: Set your API key in the environment variable 'API_KEY' before running this script.
 # Example: export API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY
-# Or run: API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY python3 tests/manual/test_chunked.py
+# Or run: API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY python3 tests/manual/manual_test_chunked.py
 """Test script for the /embed/chunked endpoint"""
 
 import os

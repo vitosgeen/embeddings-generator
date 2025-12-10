@@ -261,10 +261,49 @@ response = requests.post("http://localhost:8000/embed", json={
 
 ## Next Steps
 
-1. ✅ All PR review comments addressed
-2. ✅ All tests passing (94/94)
-3. ✅ Documentation complete
-4. Ready for merge
+1. ✅ All PR review comments addressed (Round 1: 18 comments)
+2. ✅ All PR review comments addressed (Round 2: 8 comments)
+3. ✅ All tests passing (94/94)
+4. ✅ Documentation complete and accurate
+5. Ready for merge
+
+## Round 2 Review Changes (8 Additional Comments)
+
+### 1. ✅ Fixed Misleading Default Comment
+- **Issue:** Test comment said "With chunking enabled (default)" but chunking defaults to False
+- **Fix:** Changed to "Without chunking (default)" to match actual behavior
+
+### 2. ✅ Fixed Filename References
+- **Issue:** Comments referenced old filenames without `manual_` prefix
+- **Fix:** Updated to `manual_test_embed_with_chunking.py` and `manual_test_chunked.py`
+
+### 3. ✅ Corrected Docstring for Normalization
+- **Issue:** Docstring incorrectly stated chunks are normalized before aggregation
+- **Fix:** Updated to accurately describe: "Each chunk is encoded WITHOUT normalization (to avoid double normalization)"
+
+### 4. ✅ Fixed Overlap Calculation Logic
+- **Issue:** Overlap calculation didn't properly account for spaces between sentences
+- **Fix:** Added explicit space handling: `space_needed = 1 if overlap_sentences else 0`
+
+### 5. ✅ Fixed Template Heading
+- **Issue:** Heading said "Example Response with Chunking (Default)" but chunking isn't default
+- **Fix:** Changed to "Example Response with Chunking (Enabled)"
+
+### 6. ✅ Added Text Preview Edge Case Comment
+- **Issue:** Unclear behavior for chunks exactly 100 characters
+- **Fix:** Added clarifying comment: "Note: Chunks exactly 100 characters won't have '...' appended"
+
+### 7. ✅ Improved Test Assertion
+- **Issue:** Test allowed last chunk to be any length without validation
+- **Fix:** Changed to validate ALL chunks respect chunk_size limit with descriptive error message
+
+### 8. ✅ Enhanced Code Clarity
+- **Issue:** Various clarity issues in comments and logic
+- **Fix:** Improved comments and made space handling explicit throughout
+
+## Test Results (After Round 2)
+
+All tests passing: **94 passed in 3.29s**
 
 ## Manual Testing
 

@@ -159,10 +159,12 @@ class TestGenerateEmbeddingUC:
         chunks = use_case._chunk_text(text, chunk_size=50, overlap=10)
         
         assert len(chunks) > 1
-        # Each chunk should be a string
-        for chunk in chunks:
+        # Each chunk should be a string and respect chunk_size limit
+        for i, chunk in enumerate(chunks):
             assert isinstance(chunk, str)
-            assert len(chunk) <= 50 or chunk == chunks[-1]  # Last chunk can be shorter
+            # All chunks should be <= chunk_size
+            # Exception: single sentences longer than chunk_size (but this text doesn't have those)
+            assert len(chunk) <= 50, f"Chunk {i} exceeds chunk_size: {len(chunk)} > 50"
 
     def test_chunk_text_overlap(self, use_case):
         """Test that chunks have overlap."""

@@ -143,9 +143,11 @@ class GenerateEmbeddingUC:
                         overlap_sentences = []
                         overlap_length = 0
                         for s in reversed(current_chunk):
-                            if overlap_length + len(s) <= overlap:
+                            # Account for space between sentences when calculating overlap
+                            space_needed = 1 if overlap_sentences else 0
+                            if overlap_length + len(s) + space_needed <= overlap:
                                 overlap_sentences.insert(0, s)
-                                overlap_length += len(s) + 1  # +1 for space
+                                overlap_length += len(s) + space_needed
                             else:
                                 break
                         current_chunk = overlap_sentences
@@ -192,10 +194,10 @@ class GenerateEmbeddingUC:
 
         Aggregation and Normalization Process:
             1. The input text is split into overlapping chunks using sentence boundaries when possible.
-            2. Each chunk is encoded into an embedding vector.
-            3. If normalize=True: Each chunk embedding is normalized to unit length before aggregation.
-            4. The aggregated embedding is computed as the mean of all chunk embeddings (mean pooling).
-            5. If normalize=True: The aggregated embedding is normalized to unit length after mean pooling.
+            2. Each chunk is encoded into an embedding vector WITHOUT normalization (to avoid double normalization).
+            3. The aggregated embedding is computed as the mean of all chunk embeddings (mean pooling).
+            4. If normalize=True: The aggregated embedding is normalized to unit length after mean pooling.
+            5. Individual chunk embeddings in the response are normalized separately if normalize=True.
 
         Returns:
             Dict[str, Any]: A dictionary containing:
@@ -273,6 +275,7 @@ class GenerateEmbeddingUC:
             FIELD_CHUNKS: [
                 {
                     FIELD_INDEX: i,
+                    # Note: Chunks exactly 100 characters won't have "..." appended
                     "text_preview": chunk[:100] + "..." if len(chunk) > 100 else chunk,
                     "length": len(chunk),
                     FIELD_EMBEDDING: emb,

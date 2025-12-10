@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # NOTE: Set your API key in the environment variable 'API_KEY' before running this script.
 # Example: export API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY
-# Or run: API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY python3 tests/manual/test_embed_with_chunking.py
+# Or run: API_KEY=sk-admin-REPLACE-WITH-SECURE-KEY python3 tests/manual/manual_test_embed_with_chunking.py
 """Test the /embed endpoint with chunking parameter"""
 
 import os
@@ -19,8 +19,8 @@ long_text = "Machine learning is transforming the world. " * 50
 print("Testing /embed endpoint with chunking parameter\n")
 print("=" * 80)
 
-# Test 1: With chunking enabled (default)
-print("\n1. With chunking enabled (default)")
+# Test 1: Without chunking (default)
+print("\n1. Without chunking (default)")
 print("-" * 80)
 data = {
     "text": long_text,
