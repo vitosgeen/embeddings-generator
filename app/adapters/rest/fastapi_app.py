@@ -141,4 +141,49 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
         result["requested_by"] = current_user
         return result
 
+    @app.post("/embed/chunks")
+    def embed_chunks(req: EmbedChunkedReq, current_user: str = Depends(get_current_user)):
+        """
+        Embed long text by chunking and return individual chunks with their full text and embeddings.
+        Does NOT aggregate - returns array of chunks for detailed analysis or moderation.
+        
+        Returns list format: [[text, embedding, chunk_number], ...]
+        """
+        if not req.text or not req.text.strip():
+            raise HTTPException(status_code=400, detail="Provide 'text'")
+        
+        # Get the text chunks
+        chunks_text = uc._chunk_text(
+            req.text.strip(),
+            chunk_size=req.chunk_size,
+            overlap=req.chunk_overlap
+        )
+        
+        # Get embeddings for each chunk
+        result = uc.embed_chunked(
+            req.text.strip(),
+            task_type=req.task_type,
+            normalize=req.normalize,
+            chunk_size=req.chunk_size,
+            chunk_overlap=req.chunk_overlap,
+        )
+        
+        # Format as requested: [[text, embedding, chunk_number], ...]
+        chunks_list = [
+            [
+                chunks_text[i],           # Full chunk text
+                chunk["embedding"],        # Embedding vector
+                chunk["index"] + 1         # Chunk number (1-based)
+            ]
+            for i, chunk in enumerate(result["chunks"])
+        ]
+        
+        return {
+            "model_id": result["model_id"],
+            "dim": result["dim"],
+            "chunk_count": result["chunk_count"],
+            "chunks": chunks_list,
+            "requested_by": current_user
+        }
+
     return app

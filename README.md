@@ -109,6 +109,8 @@ It allows you to send text or multiple texts and receive their vector embeddings
 |--------|-----------|--------------|
 | `GET`  | `/health` | Health check endpoint. Returns model, device, and vector size. |
 | `POST` | `/embed`  | Generate embedding(s) for one or multiple texts. |
+| `POST` | `/embed/chunked`  | Generate aggregated embedding for long text with auto-chunking. |
+| `POST` | `/embed/chunks`  | Generate individual chunk embeddings with full text for analysis. |
 
 ---
 
@@ -151,13 +153,92 @@ curl -X POST http://localhost:8000/embed \
 curl -X GET http://localhost:8000/health
 ```
 
+#### 🔹 Long text with auto-chunking (aggregated embedding)
+
+```bash
+curl -X POST http://localhost:8000/embed/chunked \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "text": "Very long text that needs to be split into chunks...",
+    "chunk_size": 1000,
+    "chunk_overlap": 100,
+    "task_type": "passage",
+    "normalize": true
+  }'
+```
+
+#### 🔹 Individual chunks with full text (for detailed analysis)
+
+Use this endpoint when you need the complete text of each chunk (not just previews) for moderation pipelines, fragment-level analysis, or toxicity detection:
+
+```bash
+curl -X POST http://localhost:8000/embed/chunks \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-your-secret-key" \
+  -d '{
+    "text": "Long text to analyze in separate chunks...",
+    "chunk_size": 1000,
+    "chunk_overlap": 100,
+    "task_type": "passage",
+    "normalize": true
+  }'
+```
+
+**Key Differences**:
+- `/embed/chunked`: Returns **aggregated** embedding (mean of all chunks) + chunk metadata with text previews → Use for document similarity search
+- `/embed/chunks`: Returns **individual** chunk embeddings with **full text** → Use for detailed analysis, moderation, or fragment-level processing
+
 #### 📊 Response format
 
+**Single/Batch embedding:**
 ```json
 {
   "model_id": "BAAI/bge-m3",
   "dim": 1024,
   "embedding": [0.1234, -0.5678, ...],
+  "requested_by": "admin"
+}
+```
+
+**Chunked embedding (aggregated):**
+```json
+{
+  "model_id": "BAAI/bge-m3",
+  "dim": 1024,
+  "embedding": [0.1234, -0.5678, ...],
+  "chunk_count": 3,
+  "aggregation": "mean",
+  "chunks": [
+    {
+      "index": 0,
+      "text_preview": "First 100 chars...",
+      "length": 1000,
+      "embedding": [...]
+    }
+  ],
+  "requested_by": "admin"
+}
+```
+
+**Individual chunks (for analysis):**
+```json
+{
+  "model_id": "BAAI/bge-m3",
+  "dim": 1024,
+  "chunk_count": 2,
+  "chunks": [
+    [
+      "Full text of first chunk here...",
+      [0.123, -0.456, ...],
+      1
+    ],
+    [
+      "Full text of second chunk here...",
+      [0.789, -0.012, ...],
+      2
+    ]
+  ],
   "requested_by": "admin"
 }
 ```

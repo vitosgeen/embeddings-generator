@@ -483,3 +483,176 @@ class TestFastAPIIntegration:
         error_detail = response.json()["detail"]
         assert any("50%" in str(err.get("msg", "")) for err in error_detail)
 
+    # Tests for /embed/chunks endpoint
+    def test_embed_chunks_short_text(self, client, auth_headers):
+        """Test /embed/chunks with short text (single chunk)."""
+        payload = {
+            "text": "This is a short text that fits in one chunk.",
+            "chunk_size": 1000,
+            "chunk_overlap": 100,
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check response structure
+        assert "model_id" in data
+        assert "dim" in data
+        assert "chunk_count" in data
+        assert "chunks" in data
+        assert "requested_by" in data
+
+        # Should have 1 chunk
+        assert data["chunk_count"] == 1
+        assert len(data["chunks"]) == 1
+
+        # Check chunk structure: [text, embedding, chunk_number]
+        chunk = data["chunks"][0]
+        assert isinstance(chunk, list)
+        assert len(chunk) == 3
+        
+        # Verify fields
+        text, embedding, chunk_num = chunk
+        assert isinstance(text, str)
+        assert len(text) > 0
+        assert isinstance(embedding, list)
+        assert len(embedding) == data["dim"]
+        assert chunk_num == 1  # First chunk is numbered 1
+
+    def test_embed_chunks_long_text(self, client, auth_headers):
+        """Test /embed/chunks with long text requiring multiple chunks."""
+        long_text = ". ".join([f"This is sentence number {i}" for i in range(100)])
+        payload = {
+            "text": long_text,
+            "chunk_size": 200,
+            "chunk_overlap": 50,
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have multiple chunks
+        assert data["chunk_count"] > 1
+        assert len(data["chunks"]) == data["chunk_count"]
+
+        # Verify each chunk structure
+        for i, chunk in enumerate(data["chunks"]):
+            assert isinstance(chunk, list)
+            assert len(chunk) == 3
+            
+            text, embedding, chunk_num = chunk
+            assert isinstance(text, str)
+            assert len(text) > 0  # Full text, not preview
+            assert isinstance(embedding, list)
+            assert len(embedding) == data["dim"]
+            assert chunk_num == i + 1  # Chunks numbered from 1
+
+    def test_embed_chunks_full_text_not_preview(self, client, auth_headers):
+        """Test that /embed/chunks returns full chunk text, not preview."""
+        # Create text with identifiable content in later part of chunk
+        text_chunk = "START_MARKER " + "x" * 200 + " END_MARKER"
+        payload = {
+            "text": text_chunk,
+            "chunk_size": 500,
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Get the full text from first chunk
+        chunk_text = data["chunks"][0][0]
+        
+        # Should contain both markers (full text)
+        assert "START_MARKER" in chunk_text
+        assert "END_MARKER" in chunk_text
+        # Should be longer than 100 chars (not a preview)
+        assert len(chunk_text) > 100
+
+    def test_embed_chunks_empty_text(self, client, auth_headers):
+        """Test /embed/chunks with empty text."""
+        payload = {
+            "text": "",
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 400  # Bad request
+        assert "text" in response.json()["detail"].lower()
+
+    def test_embed_chunks_whitespace_only(self, client, auth_headers):
+        """Test /embed/chunks with whitespace-only text."""
+        payload = {
+            "text": "   \n\t  ",
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 400  # Bad request
+
+    def test_embed_chunks_custom_parameters(self, client, auth_headers):
+        """Test /embed/chunks with custom chunk_size and overlap."""
+        long_text = ". ".join([f"Sentence {i}" for i in range(50)])
+        payload = {
+            "text": long_text,
+            "chunk_size": 150,
+            "chunk_overlap": 30,
+            "task_type": "query",
+            "normalize": False,
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should have multiple chunks with these settings
+        assert data["chunk_count"] > 1
+
+    def test_embed_chunks_excessive_overlap_validation(self, client, auth_headers):
+        """Test that excessive overlap is rejected in /embed/chunks endpoint."""
+        payload = {
+            "text": "Test text for validation",
+            "chunk_size": 100,
+            "chunk_overlap": 51,  # >50% overlap - should be rejected
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 422  # Validation error
+        error_detail = response.json()["detail"]
+        assert any("50%" in str(err.get("msg", "")) for err in error_detail)
+
+    def test_embed_chunks_response_format(self, client, auth_headers):
+        """Test the exact format of /embed/chunks response."""
+        payload = {
+            "text": "First sentence. Second sentence. Third sentence.",
+            "chunk_size": 30,
+        }
+
+        response = client.post("/embed/chunks", json=payload, headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Top-level structure
+        assert set(data.keys()) == {"model_id", "dim", "chunk_count", "chunks", "requested_by"}
+        
+        # NO aggregated embedding in this endpoint
+        assert "embedding" not in data
+        assert "aggregation" not in data
+
+        # Chunks should be array of [text, embedding, chunk_number]
+        for chunk in data["chunks"]:
+            assert isinstance(chunk, list)
+            assert len(chunk) == 3
+            assert isinstance(chunk[0], str)  # text
+            assert isinstance(chunk[1], list)  # embedding
+            assert isinstance(chunk[2], int)  # chunk_number
+
+

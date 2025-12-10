@@ -210,7 +210,11 @@
                 </div>
                 <div class="endpoint">
                     <span class="method post">POST</span>
-                    <strong>/embed/chunked</strong> - Generate embeddings for long text with auto-chunking
+                    <strong>/embed/chunked</strong> - Generate aggregated embedding for long text with auto-chunking
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/embed/chunks</strong> - Generate individual chunk embeddings with full text (for moderation/analysis)
                 </div>
                 <div class="endpoint">
                     <span class="method get">GET</span>
@@ -288,7 +292,25 @@ curl -X POST "%base_url%/embed/chunked" \
   }'
             </div>
             
-            <h3>Example Response with Chunking (Enabled)</h3>
+            <h3>Individual Chunks with Full Text (Authenticated)</h3>
+            <p style="margin-top: 1rem; color: #666;">
+                Use <code>/embed/chunks</code> when you need full chunk text (not just previews) 
+                for detailed analysis, moderation pipelines, or fragment-level processing.
+            </p>
+            <div class="code-block">
+curl -X POST "%base_url%/embed/chunks" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "text": "Long text to split into analyzable chunks...",
+    "chunk_size": 1000,
+    "chunk_overlap": 100,
+    "task_type": "passage",
+    "normalize": true
+  }'
+            </div>
+            
+            <h3>Example Response with Chunking (Aggregated - /embed/chunked)</h3>
             <div class="code-block">
 {
   "model_id": "BAAI/bge-m3",
@@ -303,6 +325,28 @@ curl -X POST "%base_url%/embed/chunked" \
       "length": 1000,
       "embedding": [...]
     }
+  ],
+  "requested_by": "admin"
+}
+            </div>
+            
+            <h3>Example Response for Individual Chunks (/embed/chunks)</h3>
+            <div class="code-block">
+{
+  "model_id": "BAAI/bge-m3",
+  "dim": 1024,
+  "chunk_count": 2,
+  "chunks": [
+    [
+      "Full text of first chunk here...",
+      [0.123, -0.456, ...],
+      1
+    ],
+    [
+      "Full text of second chunk here...",
+      [0.789, -0.012, ...],
+      2
+    ]
   ],
   "requested_by": "admin"
 }
