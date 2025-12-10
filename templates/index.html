@@ -224,7 +224,7 @@
             
             <h3>Single Text Embedding (Authenticated)</h3>
             <div class="code-block">
-curl -X POST "{{ base_url }}/embed" \
+curl -X POST "%base_url%/embed" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-admin-abc123xyz789" \
   -d '{
@@ -236,7 +236,7 @@ curl -X POST "{{ base_url }}/embed" \
             
             <h3>Batch Text Embeddings (Authenticated)</h3>
             <div class="code-block">
-curl -X POST "{{ base_url }}/embed" \
+curl -X POST "%base_url%/embed" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-user1-def456uvw012" \
   -d '{
@@ -251,7 +251,7 @@ curl -X POST "{{ base_url }}/embed" \
             
             <h3>Health Check (Public)</h3>
             <div class="code-block">
-curl -X GET "{{ base_url }}/health"
+curl -X GET "%base_url%/health"
             </div>
             
             <h3>Example Response with Authentication</h3>
@@ -280,7 +280,10 @@ curl -X GET "{{ base_url }}/health"
         
         // Update base URL in code examples
         document.querySelectorAll('.code-block').forEach(block => {
-            block.innerHTML = block.innerHTML.replace(/{{ base_url }}/g, baseUrl);
+            let search = '%base_url%';
+            while (block.innerHTML.includes(search)) {
+                block.innerHTML = block.innerHTML.replace(search, baseUrl);
+            }
         });
         
         // Check service health and update status with timeout

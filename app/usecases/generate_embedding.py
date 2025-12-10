@@ -20,6 +20,7 @@ FIELD_ITEMS = "items"
 FIELD_STATUS = "status"
 FIELD_DEVICE = "device"
 FIELD_INDEX = "index"
+FIELD_BATCH_SIZE = "batch_size"
 
 
 class GenerateEmbeddingUC:
@@ -65,4 +66,5 @@ class GenerateEmbeddingUC:
             FIELD_MODEL_ID: self.encoder.model_id(),
             FIELD_DEVICE: self.encoder.device(),
             FIELD_DIM: len(probe),
+            FIELD_BATCH_SIZE: self.encoder.batch_size(),
         }
