@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
 
 from ...usecases.generate_embedding import GenerateEmbeddingUC
 from ...auth import get_current_user
@@ -14,6 +15,51 @@ class EmbedReq(BaseModel):
     texts: Optional[List[str]] = None
     task_type: str = "passage"
     normalize: bool = True
+    chunking: bool = False  # Disable chunking by default for backward compatibility
+    chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative). Recommended: 10-20%% of chunk_size for optimal performance.")
+
+    @field_validator('chunk_overlap')
+    @classmethod
+    def validate_overlap(cls, v, info):
+        """Validate that chunk_overlap is reasonable relative to chunk_size."""
+        if 'chunk_size' in info.data:
+            chunk_size = info.data['chunk_size']
+            if v >= chunk_size:
+                raise ValueError('chunk_overlap must be less than chunk_size')
+            # Warn about performance implications if overlap > 50% of chunk_size
+            if v > chunk_size * 0.5:
+                raise ValueError(
+                    f'chunk_overlap ({v}) should not exceed 50%% of chunk_size ({chunk_size}) '
+                    'to avoid excessive chunk creation and poor performance. '
+                    'Recommended: 10-20%% overlap for optimal balance.'
+                )
+        return v
+
+
+class EmbedChunkedReq(BaseModel):
+    text: str
+    task_type: str = "passage"
+    normalize: bool = True
+    chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative). Recommended: 10-20%% of chunk_size for optimal performance.")
+
+    @field_validator('chunk_overlap')
+    @classmethod
+    def validate_overlap(cls, v, info):
+        """Validate that chunk_overlap is reasonable relative to chunk_size."""
+        if 'chunk_size' in info.data:
+            chunk_size = info.data['chunk_size']
+            if v >= chunk_size:
+                raise ValueError('chunk_overlap must be less than chunk_size')
+            # Warn about performance implications if overlap > 50% of chunk_size
+            if v > chunk_size * 0.5:
+                raise ValueError(
+                    f'chunk_overlap ({v}) should not exceed 50%% of chunk_size ({chunk_size}) '
+                    'to avoid excessive chunk creation and poor performance. '
+                    'Recommended: 10-20%% overlap for optimal balance.'
+                )
+        return v
 
 
 def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
@@ -47,12 +93,25 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
         if not items:
             raise HTTPException(status_code=400, detail="Provide 'text' or 'texts'")
 
+        # Single text handling
         if len(items) == 1:
-            result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
+            # Use chunking if enabled
+            if req.chunking:
+                result = uc.embed_chunked(
+                    items[0],
+                    task_type=req.task_type,
+                    normalize=req.normalize,
+                    chunk_size=req.chunk_size,
+                    chunk_overlap=req.chunk_overlap,
+                )
+            else:
+                result = uc.embed(items[0], task_type=req.task_type, normalize=req.normalize)
+            
             # Add metadata about the request
             result["requested_by"] = current_user
             return result
         else:
+            # Batch processing (no chunking for multiple texts)
             res = uc.embed_batch(
                 items, task_type=req.task_type, normalize=req.normalize
             )
@@ -62,5 +121,24 @@ def build_fastapi(uc: GenerateEmbeddingUC) -> FastAPI:
                 "embeddings": [it["embedding"] for it in res["items"]],
                 "requested_by": current_user,
             }
+
+    @app.post("/embed/chunked")
+    def embed_chunked(req: EmbedChunkedReq, current_user: str = Depends(get_current_user)):
+        """
+        Embed long text by automatically chunking and aggregating.
+        Returns aggregated embedding and metadata about chunks.
+        """
+        if not req.text or not req.text.strip():
+            raise HTTPException(status_code=400, detail="Provide 'text'")
+        
+        result = uc.embed_chunked(
+            req.text.strip(),
+            task_type=req.task_type,
+            normalize=req.normalize,
+            chunk_size=req.chunk_size,
+            chunk_overlap=req.chunk_overlap,
+        )
+        result["requested_by"] = current_user
+        return result
 
     return app

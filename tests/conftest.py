@@ -23,11 +23,12 @@ class MockEncoder:
     """Mock implementation of EncoderPort for testing."""
 
     def __init__(
-        self, model_id: str = DEFAULT_MOCK_MODEL_ID, device: str = DEFAULT_MOCK_DEVICE, dim: int = DEFAULT_MOCK_DIM
+        self, model_id: str = DEFAULT_MOCK_MODEL_ID, device: str = DEFAULT_MOCK_DEVICE, dim: int = DEFAULT_MOCK_DIM, batch_size: int = 32
     ):
         self._model_id = model_id
         self._device = device
         self._dim = dim
+        self._batch_size = batch_size
 
     def encode(
         self, texts: List[str], task_type: str = "passage", normalize: bool = True
@@ -49,6 +50,9 @@ class MockEncoder:
 
     def model_id(self) -> str:
         return self._model_id
+    
+    def batch_size(self) -> int:
+        return self._batch_size
 
 
 @pytest.fixture

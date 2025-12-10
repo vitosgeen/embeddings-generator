@@ -209,6 +209,10 @@
                     <strong>/embed</strong> - Generate embeddings for text(s)
                 </div>
                 <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <strong>/embed/chunked</strong> - Generate embeddings for long text with auto-chunking
+                </div>
+                <div class="endpoint">
                     <span class="method get">GET</span>
                     <strong>/docs</strong> - Interactive API documentation (Swagger UI)
                 </div>
@@ -224,19 +228,35 @@
             
             <h3>Single Text Embedding (Authenticated)</h3>
             <div class="code-block">
-curl -X POST "{{ base_url }}/embed" \
+curl -X POST "%base_url%/embed" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-admin-abc123xyz789" \
   -d '{
     "text": "Artificial intelligence is transforming the world",
     "task_type": "passage",
-    "normalize": true
+    "normalize": true,
+    "chunking": true,
+    "chunk_size": 1000,
+    "chunk_overlap": 100
+  }'
+            </div>
+            
+            <h3>Single Text Without Chunking (Authenticated)</h3>
+            <div class="code-block">
+curl -X POST "%base_url%/embed" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "text": "Short text without chunking",
+    "task_type": "passage",
+    "normalize": true,
+    "chunking": false
   }'
             </div>
             
             <h3>Batch Text Embeddings (Authenticated)</h3>
             <div class="code-block">
-curl -X POST "{{ base_url }}/embed" \
+curl -X POST "%base_url%/embed" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-user1-def456uvw012" \
   -d '{
@@ -251,10 +271,44 @@ curl -X POST "{{ base_url }}/embed" \
             
             <h3>Health Check (Public)</h3>
             <div class="code-block">
-curl -X GET "{{ base_url }}/health"
+curl -X GET "%base_url%/health"
             </div>
             
-            <h3>Example Response with Authentication</h3>
+            <h3>Long Text with Auto-Chunking (Authenticated)</h3>
+            <div class="code-block">
+curl -X POST "%base_url%/embed/chunked" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-abc123xyz789" \
+  -d '{
+    "text": "Very long text that needs chunking...",
+    "chunk_size": 1000,
+    "chunk_overlap": 100,
+    "task_type": "passage",
+    "normalize": true
+  }'
+            </div>
+            
+            <h3>Example Response with Chunking (Enabled)</h3>
+            <div class="code-block">
+{
+  "model_id": "BAAI/bge-m3",
+  "dim": 1024,
+  "embedding": [0.1234, -0.5678, ...],
+  "chunk_count": 3,
+  "aggregation": "mean",
+  "chunks": [
+    {
+      "index": 0,
+      "text_preview": "First chunk text...",
+      "length": 1000,
+      "embedding": [...]
+    }
+  ],
+  "requested_by": "admin"
+}
+            </div>
+            
+            <h3>Example Response Without Chunking</h3>
             <div class="code-block">
 {
   "model_id": "BAAI/bge-m3",
@@ -280,7 +334,10 @@ curl -X GET "{{ base_url }}/health"
         
         // Update base URL in code examples
         document.querySelectorAll('.code-block').forEach(block => {
-            block.innerHTML = block.innerHTML.replace(/{{ base_url }}/g, baseUrl);
+            let search = '%base_url%';
+            while (block.innerHTML.includes(search)) {
+                block.innerHTML = block.innerHTML.replace(search, baseUrl);
+            }
         });
         
         // Check service health and update status with timeout

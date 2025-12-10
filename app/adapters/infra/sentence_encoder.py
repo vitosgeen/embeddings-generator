@@ -70,3 +70,6 @@ class SentenceEncoder:
 
     def model_id(self) -> str:
         return self._model_id
+
+    def batch_size(self) -> int:
+        return self._batch_size
