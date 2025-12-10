@@ -120,6 +120,8 @@ class GenerateEmbeddingUC:
                     current_length = 0
                 
                 # Split long sentence into character-based chunks with overlap
+                # Note: Large overlap ratios (>50%) can create many overlapping chunks
+                # which impacts performance and memory. Validation at API level prevents this.
                 for i in range(0, len(sentence), chunk_size - overlap):
                     chunk = sentence[i:i + chunk_size]
                     if chunk.strip():
@@ -144,6 +146,8 @@ class GenerateEmbeddingUC:
                         overlap_length = 0
                         for s in reversed(current_chunk):
                             # Account for space between sentences when calculating overlap
+                            # space_needed=1 when overlap_sentences has content (space added before new sentence)
+                            # space_needed=0 for the first sentence (no space before it)
                             space_needed = 1 if overlap_sentences else 0
                             if overlap_length + len(s) + space_needed <= overlap:
                                 overlap_sentences.insert(0, s)
@@ -212,6 +216,10 @@ class GenerateEmbeddingUC:
                         if longer. Useful for debugging and understanding chunk boundaries.
                     - length (int): The length of the chunk in characters.
                     - embedding (List[float]): The full embedding vector for the chunk.
+                        Note: When normalize=True, both the aggregated embedding AND individual chunk
+                        embeddings are normalized separately. The aggregated embedding is the normalized
+                        mean of unnormalized chunks, while chunk embeddings are normalized individually.
+                        This allows comparison within each set but not directly between them.
 
         Memory and Performance Notes:
             - All chunk embeddings are kept in memory and included in the response.

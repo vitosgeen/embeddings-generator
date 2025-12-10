@@ -17,14 +17,23 @@ class EmbedReq(BaseModel):
     normalize: bool = True
     chunking: bool = False  # Disable chunking by default for backward compatibility
     chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
-    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative). Recommended: 10-20%% of chunk_size for optimal performance.")
 
     @field_validator('chunk_overlap')
     @classmethod
     def validate_overlap(cls, v, info):
-        """Validate that chunk_overlap is less than chunk_size."""
-        if 'chunk_size' in info.data and v >= info.data['chunk_size']:
-            raise ValueError('chunk_overlap must be less than chunk_size')
+        """Validate that chunk_overlap is reasonable relative to chunk_size."""
+        if 'chunk_size' in info.data:
+            chunk_size = info.data['chunk_size']
+            if v >= chunk_size:
+                raise ValueError('chunk_overlap must be less than chunk_size')
+            # Warn about performance implications if overlap > 50% of chunk_size
+            if v > chunk_size * 0.5:
+                raise ValueError(
+                    f'chunk_overlap ({v}) should not exceed 50%% of chunk_size ({chunk_size}) '
+                    'to avoid excessive chunk creation and poor performance. '
+                    'Recommended: 10-20%% overlap for optimal balance.'
+                )
         return v
 
 
@@ -33,14 +42,23 @@ class EmbedChunkedReq(BaseModel):
     task_type: str = "passage"
     normalize: bool = True
     chunk_size: int = Field(default=1000, gt=0, description="Maximum characters per chunk (must be positive)")
-    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative)")
+    chunk_overlap: int = Field(default=100, ge=0, description="Overlapping characters between chunks (must be non-negative). Recommended: 10-20%% of chunk_size for optimal performance.")
 
     @field_validator('chunk_overlap')
     @classmethod
     def validate_overlap(cls, v, info):
-        """Validate that chunk_overlap is less than chunk_size."""
-        if 'chunk_size' in info.data and v >= info.data['chunk_size']:
-            raise ValueError('chunk_overlap must be less than chunk_size')
+        """Validate that chunk_overlap is reasonable relative to chunk_size."""
+        if 'chunk_size' in info.data:
+            chunk_size = info.data['chunk_size']
+            if v >= chunk_size:
+                raise ValueError('chunk_overlap must be less than chunk_size')
+            # Warn about performance implications if overlap > 50% of chunk_size
+            if v > chunk_size * 0.5:
+                raise ValueError(
+                    f'chunk_overlap ({v}) should not exceed 50%% of chunk_size ({chunk_size}) '
+                    'to avoid excessive chunk creation and poor performance. '
+                    'Recommended: 10-20%% overlap for optimal balance.'
+                )
         return v
 
 

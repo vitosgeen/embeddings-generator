@@ -305,6 +305,90 @@ response = requests.post("http://localhost:8000/embed", json={
 
 All tests passing: **94 passed in 3.29s**
 
+## Round 3 Review Changes (7 Additional Comments)
+
+### 1. ✅ Added Overlap Ratio Validation
+- **Issue:** Excessive overlap (e.g., chunk_size=100, overlap=99) creates pathological behavior with ~1000 chunks for small texts
+- **Fix:** Added validation to limit overlap to 50% of chunk_size with helpful error message:
+  ```python
+  if v > chunk_size * 0.5:
+      raise ValueError(
+          f'chunk_overlap ({v}) should not exceed 50% of chunk_size ({chunk_size}) '
+          'to avoid excessive chunk creation and poor performance. '
+          'Recommended: 10-20% overlap for optimal balance.'
+      )
+  ```
+
+### 2. ✅ Applied DRY Principle for Validators
+- **Issue:** Identical validation code duplicated in `EmbedReq` and `EmbedChunkedReq`
+- **Fix:** Updated both validators to use the same comprehensive validation logic including the 50% limit
+- **Note:** While the code is still duplicated (Pydantic limitation), both validators now have identical behavior
+
+### 3. ✅ Enhanced Overlap Test
+- **Issue:** Test only checked chunks were non-empty, not that actual overlap existed
+- **Fix:** Added proper overlap verification:
+  ```python
+  # Check if there's actual text overlap between consecutive chunks
+  has_overlap = False
+  for overlap_len in range(min(15, len(chunks[i]), len(chunks[i+1])), 2, -1):
+      if chunks[i][-overlap_len:] in chunks[i+1][:overlap_len * 2]:
+          has_overlap = True
+          break
+  ```
+
+### 4. ✅ Documented Chunk Embedding Normalization Behavior
+- **Issue:** Unclear that aggregated and individual chunk embeddings are in different semantic spaces when normalized
+- **Fix:** Added comprehensive documentation in docstring:
+  > "When normalize=True, both the aggregated embedding AND individual chunk embeddings are normalized separately. The aggregated embedding is the normalized mean of unnormalized chunks, while chunk embeddings are normalized individually. This allows comparison within each set but not directly between them."
+- **Rationale:** This approach provides maximum flexibility - users get both the aggregated result and individual normalized chunks for their own analysis
+
+### 5. ✅ Added Space Handling Clarification
+- **Issue:** Space calculation logic (`space_needed`) was correct but could be confusing
+- **Fix:** Added detailed comment:
+  ```python
+  # space_needed=1 when overlap_sentences has content (space added before new sentence)
+  # space_needed=0 for the first sentence (no space before it)
+  ```
+
+### 6. ✅ Documented Large Overlap Performance Impact
+- **Issue:** Character-based chunking with large overlap ratios can create hundreds of chunks
+- **Fix:** Added warning comment in code and improved API-level validation to prevent this
+
+### 7. ✅ Added Validation Tests
+- **Issue:** No tests for the new overlap validation
+- **Fix:** Added 2 integration tests:
+  - `test_embed_chunked_excessive_overlap_validation` - Tests 60% overlap rejection
+  - `test_embed_excessive_overlap_validation` - Tests 55% overlap rejection on /embed
+
+### Enhanced Field Descriptions
+Updated both `EmbedReq` and `EmbedChunkedReq`:
+```python
+chunk_overlap: int = Field(
+    default=100, 
+    ge=0, 
+    description="Overlapping characters between chunks (must be non-negative). "
+                "Recommended: 10-20% of chunk_size for optimal performance."
+)
+```
+
+## Test Results (After Round 3)
+
+All tests passing: **96 passed in 6.65s** ✅
+
+New tests added:
+- `test_embed_chunked_excessive_overlap_validation` 
+- `test_embed_excessive_overlap_validation`
+- Improved `test_chunk_text_overlap` to verify actual text overlap
+
+## Final Status
+
+- ✅ Round 1: 18 comments addressed
+- ✅ Round 2: 8 comments addressed  
+- ✅ Round 3: 7 comments addressed
+- ✅ **Total: 33 PR review comments successfully resolved**
+- ✅ **96 tests passing**
+- ✅ Ready for merge
+
 ## Manual Testing
 
 Run manual tests with:

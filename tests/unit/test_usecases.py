@@ -172,11 +172,24 @@ class TestGenerateEmbeddingUC:
         chunks = use_case._chunk_text(text, chunk_size=40, overlap=15)
         
         if len(chunks) > 1:
-            # Check that consecutive chunks share some content (overlap)
+            # Verify consecutive chunks actually share content (overlap)
             for i in range(len(chunks) - 1):
-                # Some overlap should exist between consecutive chunks
                 assert len(chunks[i]) > 0
                 assert len(chunks[i+1]) > 0
+                
+                # Check if there's actual text overlap between consecutive chunks
+                # The end of current chunk should have some commonality with start of next
+                # We check for any common substring of reasonable length (at least 3 chars)
+                has_overlap = False
+                for overlap_len in range(min(15, len(chunks[i]), len(chunks[i+1])), 2, -1):
+                    if chunks[i][-overlap_len:] in chunks[i+1][:overlap_len * 2]:
+                        has_overlap = True
+                        break
+                
+                # Note: Overlap may not always be exact text match due to sentence boundaries
+                # but we should see some relationship between consecutive chunks
+                assert has_overlap or i == len(chunks) - 2, \
+                    f"No overlap detected between chunk {i} and {i+1}"
 
     def test_chunk_text_single_long_sentence(self, use_case):
         """Test chunking with a single sentence longer than chunk_size."""

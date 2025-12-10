@@ -454,3 +454,32 @@ class TestFastAPIIntegration:
         assert "chunks" not in data
         assert "embedding" in data
 
+    def test_embed_chunked_excessive_overlap_validation(self, client, auth_headers):
+        """Test that excessive overlap (>50% of chunk_size) is rejected."""
+        payload = {
+            "text": "Test text for validation",
+            "chunk_size": 100,
+            "chunk_overlap": 60,  # 60% overlap - should be rejected
+        }
+
+        response = client.post("/embed/chunked", json=payload, headers=auth_headers)
+
+        assert response.status_code == 422  # Validation error
+        error_detail = response.json()["detail"]
+        assert any("50%" in str(err.get("msg", "")) for err in error_detail)
+
+    def test_embed_excessive_overlap_validation(self, client, auth_headers):
+        """Test that excessive overlap is rejected in /embed endpoint too."""
+        payload = {
+            "text": "Test text for validation",
+            "chunking": True,
+            "chunk_size": 100,
+            "chunk_overlap": 55,  # 55% overlap - should be rejected
+        }
+
+        response = client.post("/embed", json=payload, headers=auth_headers)
+
+        assert response.status_code == 422  # Validation error
+        error_detail = response.json()["detail"]
+        assert any("50%" in str(err.get("msg", "")) for err in error_detail)
+
