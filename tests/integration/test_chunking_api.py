@@ -1,43 +1,57 @@
 """Integration tests for text chunking API endpoints."""
 import pytest
-import requests
+from fastapi.testclient import TestClient
+
+from app.adapters.rest.fastapi_app import build_fastapi
+from app.adapters.rest.auth_middleware import get_current_user
+from app.domain.auth import AuthContext
+from app.usecases.generate_embedding import GenerateEmbeddingUC
 
 
 @pytest.fixture
-def api_url():
-    """Base API URL."""
-    return "http://localhost:8000"
+def use_case(large_mock_encoder):
+    """Create a use case with a large-dimension mock encoder for testing."""
+    return GenerateEmbeddingUC(large_mock_encoder)
 
 
 @pytest.fixture
-def api_key():
-    """API key for authentication."""
-    return "sk-admin-m1YHp13elEvafGYLT27H0gmD"
+def client(use_case):
+    """Create a test client for the FastAPI app."""
+    def override_auth():
+        return AuthContext(
+            user_id=1,
+            username="test_user",
+            role="admin",
+            permissions=["all"],
+            accessible_projects=[],
+            api_key_id="sk-test-123",
+        )
+
+    app = build_fastapi(use_case)
+    app.dependency_overrides[get_current_user] = override_auth
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
-def headers(api_key):
-    """Request headers with authentication."""
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+def auth_headers(admin_auth_headers):
+    """Authentication headers for testing."""
+    return admin_auth_headers
 
 
 class TestEmbedEndpointChunking:
     """Test /embed endpoint with chunking features."""
 
-    def test_short_text_no_chunking(self, api_url, headers):
+    def test_short_text_no_chunking(self, client, auth_headers):
         """Short text should not trigger chunking."""
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": "This is a short test text.",
                 "task_type": "passage",
                 "normalize": True,
-                "auto_chunk": False
-            }
+                "auto_chunk": False,
+            },
         )
         
         assert response.status_code == 200
@@ -47,19 +61,19 @@ class TestEmbedEndpointChunking:
         assert "embedding" in data
         assert data.get("was_chunked") is False
 
-    def test_long_text_without_chunking_shows_warning(self, api_url, headers):
+    def test_long_text_without_chunking_shows_warning(self, client, auth_headers):
         """Long text without auto_chunk should show truncation warning."""
         long_text = "This is a test sentence. " * 200  # ~5000 chars
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "task_type": "passage",
                 "normalize": True,
-                "auto_chunk": False
-            }
+                "auto_chunk": False,
+            },
         )
         
         assert response.status_code == 200
@@ -69,13 +83,13 @@ class TestEmbedEndpointChunking:
         assert "warning" in data
         assert "exceeds model limit" in data["warning"]
 
-    def test_long_text_with_auto_chunking(self, api_url, headers):
+    def test_long_text_with_auto_chunking(self, client, auth_headers):
         """Long text with auto_chunk should be split and combined."""
         long_text = "Machine learning is amazing. " * 200  # ~5800 chars
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "task_type": "passage",
@@ -83,8 +97,8 @@ class TestEmbedEndpointChunking:
                 "auto_chunk": True,
                 "chunk_size": 2000,
                 "chunk_overlap": 200,
-                "combine_method": "average"
-            }
+                "combine_method": "average",
+            },
         )
         
         assert response.status_code == 200
@@ -101,19 +115,19 @@ class TestEmbedEndpointChunking:
         total_chars = sum(data["chunk_sizes"])
         assert total_chars >= len(long_text)  # Includes overlaps
 
-    def test_very_long_text_multiple_chunks(self, api_url, headers):
+    def test_very_long_text_multiple_chunks(self, client, auth_headers):
         """Very long text should create many chunks."""
         very_long_text = "Artificial intelligence technology. " * 300  # ~10,800 chars
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": very_long_text,
                 "task_type": "passage",
                 "normalize": True,
-                "auto_chunk": True
-            }
+                "auto_chunk": True,
+            },
         )
         
         assert response.status_code == 200
@@ -123,90 +137,90 @@ class TestEmbedEndpointChunking:
         assert data["num_chunks"] >= 5  # Should create multiple chunks
         assert len(data["chunk_sizes"]) == data["num_chunks"]
 
-    def test_combine_method_average(self, api_url, headers):
+    def test_combine_method_average(self, client, auth_headers):
         """Test average combine method."""
         long_text = "Test text for averaging. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "combine_method": "average"
-            }
+                "combine_method": "average",
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["combine_method"] == "average"
 
-    def test_combine_method_weighted(self, api_url, headers):
+    def test_combine_method_weighted(self, client, auth_headers):
         """Test weighted combine method (favors first chunks)."""
         long_text = "First chunk is most important. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "combine_method": "weighted"
-            }
+                "combine_method": "weighted",
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["combine_method"] == "weighted"
 
-    def test_combine_method_max(self, api_url, headers):
+    def test_combine_method_max(self, client, auth_headers):
         """Test max combine method (element-wise maximum)."""
         long_text = "Maximum values across chunks. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "combine_method": "max"
-            }
+                "combine_method": "max",
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["combine_method"] == "max"
 
-    def test_combine_method_first(self, api_url, headers):
+    def test_combine_method_first(self, client, auth_headers):
         """Test first combine method (only use first chunk)."""
         long_text = "Only first chunk matters. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "combine_method": "first"
-            }
+                "combine_method": "first",
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["combine_method"] == "first"
 
-    def test_return_individual_chunks(self, api_url, headers):
+    def test_return_individual_chunks(self, client, auth_headers):
         """Test returning individual chunk embeddings."""
         long_text = "Get individual chunk embeddings. " * 100
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "return_chunks": True
-            }
+                "return_chunks": True,
+            },
         )
         
         assert response.status_code == 200
@@ -225,19 +239,19 @@ class TestEmbedEndpointChunking:
         assert "chunks" in data
         assert len(data["chunks"]) == data["num_chunks"]
 
-    def test_custom_chunk_size(self, api_url, headers):
+    def test_custom_chunk_size(self, client, auth_headers):
         """Test custom chunk size parameter."""
         long_text = "Custom chunk size test. " * 200
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
                 "chunk_size": 1500,
-                "chunk_overlap": 150
-            }
+                "chunk_overlap": 150,
+            },
         )
         
         assert response.status_code == 200
@@ -248,18 +262,18 @@ class TestEmbedEndpointChunking:
         for size in data["chunk_sizes"]:
             assert size <= 1650  # chunk_size + buffer
 
-    def test_zero_overlap(self, api_url, headers):
+    def test_zero_overlap(self, client, auth_headers):
         """Test chunking with zero overlap."""
         long_text = "No overlap between chunks. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "chunk_overlap": 0
-            }
+                "chunk_overlap": 0,
+            },
         )
         
         assert response.status_code == 200
@@ -270,16 +284,16 @@ class TestEmbedEndpointChunking:
 class TestEmbedCheckEndpoint:
     """Test /embed/check endpoint for preview."""
 
-    def test_check_short_text(self, api_url, headers):
+    def test_check_short_text(self, client, auth_headers):
         """Check endpoint with short text."""
-        response = requests.post(
-            f"{api_url}/embed/check",
-            headers=headers,
+        response = client.post(
+            "/embed/check",
+            headers=auth_headers,
             json={
                 "text": "Short text for checking.",
                 "chunk_size": 2000,
-                "chunk_overlap": 200
-            }
+                "chunk_overlap": 200,
+            },
         )
         
         assert response.status_code == 200
@@ -288,18 +302,18 @@ class TestEmbedCheckEndpoint:
         assert data["would_be_chunked"] is False
         assert data["text_length"] < 2000
 
-    def test_check_long_text(self, api_url, headers):
+    def test_check_long_text(self, client, auth_headers):
         """Check endpoint with long text."""
         long_text = "Preview chunking behavior. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed/check",
-            headers=headers,
+
+        response = client.post(
+            "/embed/check",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "chunk_size": 2000,
-                "chunk_overlap": 200
-            }
+                "chunk_overlap": 200,
+            },
         )
         
         assert response.status_code == 200
@@ -310,32 +324,32 @@ class TestEmbedCheckEndpoint:
         assert "chunk_sizes" in data
         assert len(data["chunk_sizes"]) == data["num_chunks"]
 
-    def test_check_matches_actual_chunking(self, api_url, headers):
+    def test_check_matches_actual_chunking(self, client, auth_headers):
         """Check preview should match actual chunking."""
         test_text = "Testing preview accuracy. " * 100
         
         # Get preview
-        check_response = requests.post(
-            f"{api_url}/embed/check",
-            headers=headers,
+        check_response = client.post(
+            "/embed/check",
+            headers=auth_headers,
             json={
                 "text": test_text,
                 "chunk_size": 1000,
-                "chunk_overlap": 100
-            }
+                "chunk_overlap": 100,
+            },
         )
         check_data = check_response.json()
         
         # Get actual embedding
-        embed_response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+        embed_response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": test_text,
                 "auto_chunk": True,
                 "chunk_size": 1000,
-                "chunk_overlap": 100
-            }
+                "chunk_overlap": 100,
+            },
         )
         embed_data = embed_response.json()
         
@@ -348,84 +362,84 @@ class TestEmbedCheckEndpoint:
 class TestChunkingEdgeCases:
     """Test edge cases for chunking."""
 
-    def test_empty_text(self, api_url, headers):
+    def test_empty_text(self, client, auth_headers):
         """Empty text should be handled gracefully."""
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": "",
-                "auto_chunk": True
-            }
+                "auto_chunk": True,
+            },
         )
         
         # Should either succeed with empty result or return appropriate error
         assert response.status_code in [200, 400, 422]
 
-    def test_unicode_text_chunking(self, api_url, headers):
+    def test_unicode_text_chunking(self, client, auth_headers):
         """Unicode text should be chunked correctly."""
         unicode_text = "Hello 世界! مرحبا! Привет! " * 100
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": unicode_text,
-                "auto_chunk": True
-            }
+                "auto_chunk": True,
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["dim"] == 768
 
-    def test_text_with_newlines(self, api_url, headers):
+    def test_text_with_newlines(self, client, auth_headers):
         """Text with newlines should be handled."""
         text_with_newlines = "Paragraph 1.\n\nParagraph 2.\n\nParagraph 3.\n" * 100
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": text_with_newlines,
-                "auto_chunk": True
-            }
+                "auto_chunk": True,
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["dim"] == 768
 
-    def test_exactly_at_limit(self, api_url, headers):
+    def test_exactly_at_limit(self, client, auth_headers):
         """Text exactly at token limit should be handled."""
         # Create text of exactly ~2048 chars (512 tokens)
         text = "word " * 410  # ~2050 chars
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": text,
-                "auto_chunk": False
-            }
+                "auto_chunk": False,
+            },
         )
         
         assert response.status_code == 200
         data = response.json()
         assert data["dim"] == 768
 
-    def test_invalid_combine_method(self, api_url, headers):
+    def test_invalid_combine_method(self, client, auth_headers):
         """Invalid combine method should return 500 error."""
         long_text = "Test invalid method. " * 150
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": long_text,
                 "auto_chunk": True,
-                "combine_method": "invalid_method"
-            }
+                "combine_method": "invalid_method",
+            },
         )
         
         # Should return error for invalid method
@@ -435,20 +449,20 @@ class TestChunkingEdgeCases:
 class TestChunkingPerformance:
     """Test performance-related aspects of chunking."""
 
-    def test_very_large_text(self, api_url, headers):
+    def test_very_large_text(self, client, auth_headers):
         """Test with very large text (>50KB)."""
         # Create ~50KB of text
         large_text = "Performance test with large text. " * 1500  # ~52KB
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": large_text,
                 "auto_chunk": True,
-                "combine_method": "weighted"
+                "combine_method": "weighted",
             },
-            timeout=30  # Give it more time
+            timeout=30,  # Give it more time
         )
         
         assert response.status_code == 200
@@ -458,18 +472,18 @@ class TestChunkingPerformance:
         assert data["num_chunks"] >= 10  # Should have many chunks
         assert data["dim"] == 768
 
-    def test_chunk_count_reasonable(self, api_url, headers):
+    def test_chunk_count_reasonable(self, client, auth_headers):
         """Chunk count should be reasonable for text size."""
         text_10k = "Test. " * 1700  # ~10,200 chars
-        
-        response = requests.post(
-            f"{api_url}/embed",
-            headers=headers,
+
+        response = client.post(
+            "/embed",
+            headers=auth_headers,
             json={
                 "text": text_10k,
                 "auto_chunk": True,
-                "chunk_size": 2000
-            }
+                "chunk_size": 2000,
+            },
         )
         
         assert response.status_code == 200
