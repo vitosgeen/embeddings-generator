@@ -1,0 +1,552 @@
+{
+  "info": {
+    "_postman_id": "a7d9fd3b-d0d2-4ddf-8b6a-2eeb1fce5270",
+    "name": "Embeddings Service - Testing Collection",
+    "description": "Postman collection for end-to-end testing of Embeddings + Vector DB service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "sk-admin-secret123",
+      "type": "string"
+    },
+    {
+      "key": "user_api_key",
+      "value": "sk-user-secret456",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "test-project",
+      "type": "string"
+    },
+    {
+      "key": "collection_name",
+      "value": "documents",
+      "type": "string"
+    },
+    {
+      "key": "vector_id",
+      "value": "vec-001",
+      "type": "string"
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1) Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2) Embeddings",
+      "item": [
+        {
+          "name": "Check Chunking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"This is a sample text to check chunking behavior for the selected model.\",\n  \"chunk_size\": 2000,\n  \"auto_chunk\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/embed/check",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "embed",
+                "check"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Single Embedding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Artificial intelligence is transforming software engineering.\",\n  \"model\": \"fast\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/embed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "embed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Batch Embeddings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"texts\": [\n    \"Machine learning is a subset of AI\",\n    \"Vector search enables semantic retrieval\",\n    \"Embeddings capture meaning in text\"\n  ],\n  \"model\": \"fast\",\n  \"task_type\": \"passage\",\n  \"normalize\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/embed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "embed"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3) Vector DB",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{project_id}}\",\n  \"metadata\": {\n    \"description\": \"Postman testing project\",\n    \"owner\": \"qa\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/projects",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vdb/projects",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Collection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{collection_name}}\",\n  \"dimension\": 768,\n  \"metric\": \"cosine\",\n  \"shards\": 4,\n  \"description\": \"Default collection for testing\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/projects/{{project_id}}/collections",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects",
+                "{{project_id}}",
+                "collections"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Collections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vdb/projects/{{project_id}}/collections",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects",
+                "{{project_id}}",
+                "collections"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Vector",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{vector_id}}\",\n  \"embedding\": [0.1, 0.2, 0.3, 0.4],\n  \"metadata\": {\n    \"category\": \"test\"\n  },\n  \"document\": \"This is a test vector document\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/projects/{{project_id}}/collections/{{collection_name}}/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects",
+                "{{project_id}}",
+                "collections",
+                "{{collection_name}}",
+                "add"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Vectors",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3, 0.4],\n  \"limit\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/projects/{{project_id}}/collections/{{collection_name}}/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "projects",
+                "{{project_id}}",
+                "collections",
+                "{{collection_name}}",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Simple Add Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"doc-001\",\n  \"text\": \"FastAPI is a modern Python framework for APIs\",\n  \"metadata\": {\n    \"source\": \"postman\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/simple/{{project_id}}/collections/{{collection_name}}/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "simple",
+                "{{project_id}}",
+                "collections",
+                "{{collection_name}}",
+                "add"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Simple Search Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"python api framework\",\n  \"limit\": 5,\n  \"min_score\": 0.4\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/vdb/simple/{{project_id}}/collections/{{collection_name}}/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vdb",
+                "simple",
+                "{{project_id}}",
+                "collections",
+                "{{collection_name}}",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4) Task Queue (Admin)",
+      "item": [
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.task_id) {",
+                  "  pm.collectionVariables.set('task_id', res.task_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"task_type\": \"cleanup_logs\",\n  \"params\": {\n    \"days\": 7\n  },\n  \"name\": \"Cleanup old logs\",\n  \"priority\": 1,\n  \"max_retries\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tasks/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                ""
+              ]
+            },
+            "description": "Requires admin API key in {{api_key}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/{{task_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                "{{task_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks?limit=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Queue Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/stats/queue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                "stats",
+                "queue"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Worker",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/worker/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                "worker",
+                "start"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Stop Worker",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/worker/stop",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                "worker",
+                "stop"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/{{task_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tasks",
+                "{{task_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

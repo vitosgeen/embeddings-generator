@@ -438,11 +438,16 @@ def build_admin_router() -> APIRouter:
         if user_id:
             selected_user = _user_storage.get_user_by_id(user_id)
         
-        return templates.TemplateResponse("admin/key_form.html", {
+        # Check if this is an HTMX request (partial) or direct browser request (full page)
+        is_htmx = request.headers.get("HX-Request") == "true"
+        template_name = "admin/key_form.html" if is_htmx else "admin/key_form_standalone.html"
+        
+        return templates.TemplateResponse(template_name, {
             "request": request,
             "auth": auth,
             "users": users,
             "selected_user": selected_user,
+            "standalone": not is_htmx,
         })
     
     @router.post("/keys", response_class=HTMLResponse)
@@ -498,12 +503,15 @@ def build_admin_router() -> APIRouter:
         )
         
         # Return key details with plaintext key (only shown once!)
-        return templates.TemplateResponse("admin/key_created.html", {
+        is_htmx = request.headers.get("HX-Request") == "true"
+        template_name = "admin/key_created.html" if is_htmx else "admin/key_created_standalone.html"
+        return templates.TemplateResponse(template_name, {
             "request": request,
             "auth": auth,
             "api_key": api_key,
             "plaintext_key": plaintext_key,
             "user": user,
+            "standalone": not is_htmx,
         })
     
     @router.post("/keys/{key_id}/revoke")
