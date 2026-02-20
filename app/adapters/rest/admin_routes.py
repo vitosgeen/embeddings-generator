@@ -18,6 +18,7 @@ from app.adapters.infra.auth_storage import (
     ProjectStorage,
 )
 from app.config import AUTH_DB_PATH, ADMIN_PASSWORD
+from app import config
 from .auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,11 @@ def build_admin_router() -> APIRouter:
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
                 "error": "Invalid username or password",
-                "username": username
+                "username": username,
+                "config": {
+                    "DEBUG": config.DEBUG,
+                    "SHOW_DEFAULT_CREDENTIALS": config.SHOW_DEFAULT_CREDENTIALS
+                }
             })
         
         # Check if user has admin role
@@ -133,7 +138,11 @@ def build_admin_router() -> APIRouter:
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
                 "error": "Access denied: Admin role required",
-                "username": username
+                "username": username,
+                "config": {
+                    "DEBUG": config.DEBUG,
+                    "SHOW_DEFAULT_CREDENTIALS": config.SHOW_DEFAULT_CREDENTIALS
+                }
             })
         
         # Validate password against environment variable
@@ -142,7 +151,11 @@ def build_admin_router() -> APIRouter:
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
                 "error": "Invalid username or password",
-                "username": username
+                "username": username,
+                "config": {
+                    "DEBUG": config.DEBUG,
+                    "SHOW_DEFAULT_CREDENTIALS": config.SHOW_DEFAULT_CREDENTIALS
+                }
             })
         
         # Create session cookie
