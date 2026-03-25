@@ -1,0 +1,138 @@
+{% extends "admin/base.html" %}
+
+{% block title %}My API Keys{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">My API Keys</h2>
+        <button 
+            hx-get="/admin/user/keys/new" 
+            hx-target="#modal-content"
+            hx-swap="innerHTML"
+            onclick="const modal = document.getElementById('modal'); if (modal) modal.classList.remove('hidden');"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            New API Key
+        </button>
+    </div>
+    
+    <!-- API Keys Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        {% if api_keys %}
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Label</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key (Masked)</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Used</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for key in api_keys %}
+                <tr id="key-row-{{ key.id }}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ key.label or 'Unnamed' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {{ key.key_hash[:12] }}...{{ key.key_hash[-4:] }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if key.is_active and not key.is_expired %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Active
+                        </span>
+                        {% elif key.is_expired %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Expired
+                        </span>
+                        {% else %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            Revoked
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ key.created_at.strftime('%Y-%m-%d %H:%M') if key.created_at else 'N/A' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if key.expires_at %}
+                        {{ key.expires_at.strftime('%Y-%m-%d') }}
+                        {% else %}
+                        Never
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ key.last_used_at.strftime('%Y-%m-%d %H:%M') if key.last_used_at else 'Never' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {% if key.is_active and not key.is_expired %}
+                        <button
+                            hx-post="/admin/user/keys/{{ key.id }}/revoke"
+                            hx-confirm="Are you sure you want to revoke this API key?"
+                            hx-target="#key-row-{{ key.id }}"
+                            hx-swap="outerHTML"
+                            class="text-red-600 hover:text-red-900">
+                            Revoke
+                        </button>
+                        {% else %}
+                        <button
+                            hx-delete="/admin/user/keys/{{ key.id }}"
+                            hx-confirm="Delete this API key? This cannot be undone."
+                            hx-target="#key-row-{{ key.id }}"
+                            hx-swap="outerHTML swap:1s"
+                            class="text-red-600 hover:text-red-900">
+                            Delete
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-4 py-8 text-center text-sm text-gray-500">
+            <p class="text-gray-600 mb-4">You haven't created any API keys yet.</p>
+            <button 
+                hx-get="/admin/user/keys/new" 
+                hx-target="#modal-content"
+                hx-swap="innerHTML"
+                onclick="const modal = document.getElementById('modal'); if (modal) modal.classList.remove('hidden');"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                Create Your First API Key
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Info Box -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 class="text-sm font-medium text-blue-900 mb-2">About API Keys</h3>
+        <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
+            <li>API keys are used to authenticate requests to the embeddings service.</li>
+            <li>Never share your API keys—treat them like passwords.</li>
+            <li>Keys are shown only once when created. Save them immediately.</li>
+            <li>You can revoke compromised keys at any time.</li>
+            <li>Use different keys for different applications for better security.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Modal for creating API keys -->
+<div id="modal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div id="modal-content"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

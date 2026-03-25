@@ -10,10 +10,10 @@
     {% endif %}
     
     <form 
-        hx-post="/admin/users" 
-        hx-target="#users-tbody" 
-        hx-swap="afterbegin"
-        hx-on::after-request="if(event.detail.successful) document.getElementById('modal').classList.add('hidden')">
+        hx-post="{% if user %}/admin/users/{{ user.id }}{% else %}/admin/users{% endif %}" 
+        hx-target="{% if user %}#modal-content{% else %}#users-tbody{% endif %}" 
+        hx-swap="{% if user %}innerHTML{% else %}afterbegin{% endif %}"
+        hx-on::after-request="if(event.detail.successful) { const modal = document.getElementById('modal'); if (modal) modal.classList.add('hidden'); }">
         
         <div class="mb-4">
             <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
@@ -35,6 +35,29 @@
                 value="{% if user %}{{ user.email }}{% endif %}"
                 class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
         </div>
+
+        {% if user %}
+        <div class="mb-4">
+            <label for="password" class="block text-sm font-medium text-gray-700">New Password (optional)</label>
+            <input 
+                type="password" 
+                name="password" 
+                id="password"
+                placeholder="Leave empty to keep current password"
+                class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+            <p class="mt-1 text-xs text-gray-500">Leave blank to keep the existing password</p>
+        </div>
+        {% else %}
+        <div class="mb-4">
+            <label for="password" class="block text-sm font-medium text-gray-700">Initial Password (optional)</label>
+            <input 
+                type="password" 
+                name="password" 
+                id="password"
+                placeholder="Leave empty to set password later"
+                class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+        </div>
+        {% endif %}
         
         <div class="mb-4">
             <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
