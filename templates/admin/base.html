@@ -31,6 +31,10 @@
                         <a href="/admin/" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Dashboard
                         </a>
+                        <a href="/admin/projects" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Projects
+                        </a>
+                        {% if auth.role == "admin" %}
                         <a href="/admin/usage" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Usage
                         </a>
@@ -39,9 +43,6 @@
                         </a>
                         <a href="/admin/users" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Users
-                        </a>
-                        <a href="/admin/projects" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Projects
                         </a>
                         <a href="/admin/keys" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             API Keys
@@ -52,12 +53,21 @@
                         <a href="/admin/explorer" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             🔍 DB Explorer
                         </a>
+                        {% endif %}
                     </div>
                 </div>
-                <div class="flex items-center">
+                <div class="flex items-center space-x-4">
+                    <a href="/admin/user/keys" class="text-gray-600 hover:text-gray-900 text-sm font-medium">
+                        🔑 My API Keys
+                    </a>
+                    <span class="text-gray-300">|</span>
                     <span class="text-sm text-gray-700">
                         {{ auth.username }} ({{ auth.role }})
                     </span>
+                    <span class="text-gray-300">|</span>
+                    <a href="/admin/logout" class="text-gray-600 hover:text-red-600 text-sm font-medium">
+                        Logout
+                    </a>
                 </div>
             </div>
         </div>
@@ -86,9 +96,17 @@
         // HTMX event listeners
         document.body.addEventListener('htmx:afterRequest', (event) => {
             if (event.detail.successful) {
-                const response = JSON.parse(event.detail.xhr.response || '{}');
-                if (response.message) {
-                    showToast(response.message, 'success');
+                const xhr = event.detail.xhr;
+                const contentType = xhr.getResponseHeader('Content-Type') || '';
+                if (contentType.includes('application/json')) {
+                    try {
+                        const response = JSON.parse(xhr.response || '{}');
+                        if (response.message) {
+                            showToast(response.message, 'success');
+                        }
+                    } catch (_) {
+                        // Ignore non-JSON responses returned by HTMX partial renders.
+                    }
                 }
             } else {
                 showToast('An error occurred', 'error');

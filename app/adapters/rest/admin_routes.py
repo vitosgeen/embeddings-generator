@@ -5,11 +5,11 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request, HTTPException, Form, Depends, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from app.domain.auth import AuthContext, Role, api_key_manager, mask_api_key
+from app.domain.auth import AuthContext, Role, api_key_manager, password_manager, mask_api_key
 from app.adapters.infra.auth_storage import (
     AuthDatabase,
     UserStorage,
@@ -47,7 +47,7 @@ _project_storage = ProjectStorage(_auth_db)
 
 # Admin session helper
 async def get_admin_user(request: Request) -> AuthContext:
-    """Get admin user from session cookie or API key.
+    """Get admin UI user from session cookie or API key.
     
     Checks for admin_session cookie first, then falls back to API key auth.
     """
@@ -60,15 +60,19 @@ async def get_admin_user(request: Request) -> AuthContext:
             if len(parts) == 2:
                 username, user_id_str = parts
                 user = _user_storage.get_user_by_username(username)
-                if user and user.active and user.role == "admin" and str(user.id) == user_id_str:
-                    # Create auth context for admin user
+                if user and user.active and user.role in ("admin", "project-owner") and str(user.id) == user_id_str:
+                    # Create auth context for admin UI user
                     role = Role.from_string(user.role)
+                    accessible_projects = []
+                    if user.role != "admin":
+                        user_projects = _project_storage.list_user_projects(user.id)
+                        accessible_projects = [project.project_id for project, _ in user_projects]
                     return AuthContext(
                         user_id=user.id,
                         username=user.username,
                         role=user.role,
                         permissions=role.get_permissions(),
-                        accessible_projects=[],  # Admin has access to all
+                        accessible_projects=accessible_projects,
                         api_key_id="session",
                     )
         except Exception as e:
@@ -133,11 +137,11 @@ def build_admin_router() -> APIRouter:
                 }
             })
         
-        # Check if user has admin role
-        if user.role != "admin":
+        # Check if user has admin or project-owner role
+        if user.role not in ("admin", "project-owner"):
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
-                "error": "Access denied: Admin role required",
+                "error": "Access denied: Admin or Project Owner role required",
                 "username": username,
                 "config": {
                     "DEBUG": config.DEBUG,
@@ -145,9 +149,14 @@ def build_admin_router() -> APIRouter:
                 }
             })
         
-        # Validate password against environment variable
-        # Password can be set via ADMIN_PASSWORD in .env file
-        if password != ADMIN_PASSWORD:
+        # Validate password with per-user hash when available; keep ADMIN_PASSWORD fallback.
+        password_valid = False
+        if user.password_hash:
+            password_valid = password_manager.verify_password(password, user.password_hash)
+        elif password == ADMIN_PASSWORD:
+            password_valid = True
+
+        if not password_valid:
             return templates.TemplateResponse("admin/login.html", {
                 "request": request,
                 "error": "Invalid username or password",
@@ -189,7 +198,8 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Admin dashboard homepage."""
-        auth.require_permission("admin:users")
+        if not auth.has_permission("admin:users"):
+            return RedirectResponse(url="/admin/projects", status_code=status.HTTP_302_FOUND)
         
         # Get statistics
         users = _user_storage.list_users()
@@ -274,6 +284,7 @@ def build_admin_router() -> APIRouter:
         username: str = Form(...),
         email: Optional[str] = Form(None),
         role: str = Form(...),
+        password: Optional[str] = Form(None),
     ):
         """Create a new user."""
         auth.require_permission("admin:users")
@@ -296,6 +307,12 @@ def build_admin_router() -> APIRouter:
                 email=email if email else None,
                 role=role,
             )
+            
+            # Set password if provided
+            if password and password.strip():
+                password_hash = password_manager.hash_password(password.strip())
+                _user_storage.set_password(user.id, password_hash)
+                user.password_hash = password_hash  # Update local object
             
             # Log the action
             _audit_storage.create_log(
@@ -320,6 +337,102 @@ def build_admin_router() -> APIRouter:
                 "error": str(e),
             })
     
+    @router.get("/users/{user_id}/edit", response_class=HTMLResponse)
+    async def edit_user_form(
+        request: Request,
+        user_id: int,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Show form to edit an existing user."""
+        auth.require_permission("admin:users")
+
+        user = _user_storage.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return templates.TemplateResponse("admin/user_form.html", {
+            "request": request,
+            "auth": auth,
+            "user": user,
+            "roles": [r.value for r in Role],
+        })
+
+    @router.post("/users/{user_id}", response_class=HTMLResponse)
+    async def update_user(
+        request: Request,
+        user_id: int,
+        auth: AuthContext = Depends(get_admin_user),
+        username: str = Form(...),
+        email: Optional[str] = Form(None),
+        role: str = Form(...),
+        password: Optional[str] = Form(None),
+    ):
+        """Update an existing user."""
+        auth.require_permission("admin:users")
+
+        existing_user = _user_storage.get_user_by_id(user_id)
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        try:
+            # Enforce unique usernames when renaming users.
+            username = username.strip()
+            if username != existing_user.username:
+                conflict = _user_storage.get_user_by_username(username)
+                if conflict and conflict.id != user_id:
+                    return templates.TemplateResponse("admin/user_form.html", {
+                        "request": request,
+                        "auth": auth,
+                        "user": existing_user,
+                        "roles": [r.value for r in Role],
+                        "error": f"Username '{username}' already exists",
+                    })
+
+            updated_user = _user_storage.update_user(
+                user_id=user_id,
+                username=username,
+                email=email if email else None,
+                role=role,
+            )
+
+            if not updated_user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            # Set password if provided and not empty
+            if password and password.strip():
+                password_hash = password_manager.hash_password(password.strip())
+                _user_storage.set_password(user_id, password_hash)
+                updated_user.password_hash = password_hash  # Update local object
+
+            _audit_storage.create_log(
+                action="user_updated",
+                user_id=auth.user_id,
+                status="success",
+                details={
+                    "updated_user_id": updated_user.id,
+                    "old_username": existing_user.username,
+                    "new_username": updated_user.username,
+                    "new_role": updated_user.role,
+                },
+            )
+
+            # For HTMX modal submits, redirect to refreshed user detail page.
+            if request.headers.get("HX-Request") == "true":
+                return Response(status_code=204, headers={"HX-Redirect": f"/admin/users/{user_id}"})
+
+            return RedirectResponse(url=f"/admin/users/{user_id}", status_code=status.HTTP_302_FOUND)
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            return templates.TemplateResponse("admin/user_form.html", {
+                "request": request,
+                "auth": auth,
+                "user": existing_user,
+                "roles": [r.value for r in Role],
+                "error": str(e),
+            })
+
     @router.get("/users/{user_id}", response_class=HTMLResponse)
     async def get_user(
         request: Request,
@@ -345,6 +458,7 @@ def build_admin_router() -> APIRouter:
     
     @router.post("/users/{user_id}/deactivate")
     async def deactivate_user(
+        request: Request,
         user_id: int,
         auth: AuthContext = Depends(get_admin_user),
     ):
@@ -356,6 +470,7 @@ def build_admin_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="User not found")
         
         _user_storage.deactivate_user(user_id)
+        updated_user = _user_storage.get_user_by_id(user_id)
         
         _audit_storage.create_log(
             action="user_deactivated",
@@ -364,7 +479,46 @@ def build_admin_router() -> APIRouter:
             details={"deactivated_user_id": user_id, "username": user.username},
         )
         
+        hx_target = request.headers.get("HX-Target", "")
+        if request.headers.get("HX-Request") == "true" and hx_target.startswith("user-") and updated_user:
+            return templates.TemplateResponse("admin/user_row.html", {
+                "request": request,
+                "user": updated_user,
+            })
+
         return {"status": "success", "message": f"User {user.username} deactivated"}
+
+    @router.post("/users/{user_id}/activate")
+    async def activate_user(
+        request: Request,
+        user_id: int,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Activate a user."""
+        auth.require_permission("admin:users")
+
+        user = _user_storage.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        _user_storage.activate_user(user_id)
+        updated_user = _user_storage.get_user_by_id(user_id)
+
+        _audit_storage.create_log(
+            action="user_activated",
+            user_id=auth.user_id,
+            status="success",
+            details={"activated_user_id": user_id, "username": user.username},
+        )
+
+        hx_target = request.headers.get("HX-Target", "")
+        if request.headers.get("HX-Request") == "true" and hx_target.startswith("user-") and updated_user:
+            return templates.TemplateResponse("admin/user_row.html", {
+                "request": request,
+                "user": updated_user,
+            })
+
+        return {"status": "success", "message": f"User {user.username} activated"}
     
     @router.delete("/users/{user_id}")
     async def delete_user(
@@ -597,19 +751,29 @@ def build_admin_router() -> APIRouter:
         owner_id: Optional[int] = None,
     ):
         """List all projects."""
-        auth.require_permission("admin:users")
-        
-        if owner_id:
-            owner = _user_storage.get_user_by_id(owner_id)
-            if not owner:
-                raise HTTPException(status_code=404, detail="User not found")
-            projects = _project_storage.list_projects(owner_user_id=owner_id)
-            filter_owner = owner
+        auth.require_permission("write:projects")
+
+        if auth.role == "admin":
+            if owner_id:
+                owner = _user_storage.get_user_by_id(owner_id)
+                if not owner:
+                    raise HTTPException(status_code=404, detail="User not found")
+                projects = _project_storage.list_projects(owner_user_id=owner_id)
+                filter_owner = owner
+            else:
+                projects = _project_storage.list_projects()
+                filter_owner = None
+
+            users = _user_storage.list_users()
         else:
-            projects = _project_storage.list_projects()
+            # Project owners see only projects they can access.
+            user_projects = _project_storage.list_user_projects(auth.user_id)
+            projects = [project for project, _ in user_projects]
+            if owner_id and owner_id != auth.user_id:
+                projects = []
             filter_owner = None
-        
-        users = _user_storage.list_users()
+            current_user = _user_storage.get_user_by_id(auth.user_id)
+            users = [current_user] if current_user else []
         
         # Create user map for templates
         user_map = {user.id: user for user in users}
@@ -629,9 +793,13 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Show form to create new project."""
-        auth.require_permission("admin:users")
-        
-        users = _user_storage.list_users()
+        auth.require_permission("write:projects")
+
+        if auth.role == "admin":
+            users = _user_storage.list_users()
+        else:
+            current_user = _user_storage.get_user_by_id(auth.user_id)
+            users = [current_user] if current_user else []
         
         return templates.TemplateResponse("admin/project_form.html", {
             "request": request,
@@ -650,7 +818,10 @@ def build_admin_router() -> APIRouter:
         description: Optional[str] = Form(None),
     ):
         """Create a new project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
+
+        if auth.role != "admin":
+            owner_user_id = auth.user_id
         
         try:
             # Check if project_id already exists
@@ -738,11 +909,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Get project details and user access."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         # Get owner
         owner = _user_storage.get_user_by_id(project.owner_user_id)
@@ -788,11 +962,14 @@ def build_admin_router() -> APIRouter:
         role: str = Form("project-owner"),
     ):
         """Grant a user access to a project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         user = _user_storage.get_user_by_id(user_id)
         if not user:
@@ -832,11 +1009,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Revoke a user's access to a project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         user = _user_storage.get_user_by_id(user_id)
         if not user:
@@ -868,11 +1048,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Show form to create new collection."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:collections")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         return templates.TemplateResponse("admin/collection_form.html", {
             "request": request,
@@ -890,11 +1073,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Create a new collection in the project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:collections")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         # Validate collection name
         import re
@@ -995,11 +1181,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Deactivate a project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         _project_storage.deactivate_project(project_id)
         
@@ -1018,11 +1207,14 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user),
     ):
         """Delete a project."""
-        auth.require_permission("admin:users")
+        auth.require_permission("write:projects")
         
         project = _project_storage.get_project_by_id(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin":
+            auth.require_project_access(project_id)
         
         _project_storage.delete_project(project_id)
         
@@ -1206,10 +1398,26 @@ def build_admin_router() -> APIRouter:
     # ========================================================================
     # Database Explorer
     # ========================================================================
+
+    def _ensure_explorer_project_access(auth: AuthContext, project_id: str):
+        """Validate explorer access for a specific project.
+
+        Admin can access everything. Project-owner can access only owned projects.
+        """
+        project = _project_storage.get_project_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        if auth.role != "admin" and project.owner_user_id != auth.user_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this project")
+
+        return project
     
     @router.get("/explorer", response_class=HTMLResponse)
     async def explorer_page(request: Request, auth: AuthContext = Depends(get_admin_user)):
         """Database explorer main page."""
+        auth.require_permission("read:project")
+
         from scripts.db_explorer import VDBExplorer, AuthDBExplorer
         
         vdb = VDBExplorer()
@@ -1218,6 +1426,11 @@ def build_admin_router() -> APIRouter:
         # Get all projects with stats
         projects = []
         for project_id in vdb.list_projects():
+            if auth.role != "admin":
+                project = _project_storage.get_project_by_id(project_id)
+                if not project or project.owner_user_id != auth.user_id:
+                    continue
+
             collections = vdb.list_collections(project_id)
             total_vectors = 0
             
@@ -1231,11 +1444,13 @@ def build_admin_router() -> APIRouter:
                 "total_vectors": total_vectors
             })
         
-        # Get user stats
-        user_stats = auth_db.get_user_summary().to_dict('records')
-        
-        # Get operation stats
-        operation_stats = auth_db.get_operation_summary(days=7).to_dict('records')
+        # Keep user/operation global stats admin-only to avoid cross-tenant leakage.
+        if auth.role == "admin":
+            user_stats = auth_db.get_user_summary().to_dict('records')
+            operation_stats = auth_db.get_operation_summary(days=7).to_dict('records')
+        else:
+            user_stats = []
+            operation_stats = []
         
         return templates.TemplateResponse("admin/explorer.html", {
             "request": request,
@@ -1251,7 +1466,11 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user)
     ):
         """Get detailed project information."""
+        auth.require_permission("read:project")
+
         from scripts.db_explorer import VDBExplorer
+
+        _ensure_explorer_project_access(auth, project_id)
         
         vdb = VDBExplorer()
         collections = vdb.list_collections(project_id)
@@ -1286,7 +1505,11 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user)
     ):
         """Search for a vector by ID."""
+        auth.require_permission("search:vectors")
+
         from scripts.db_explorer import VDBExplorer
+
+        _ensure_explorer_project_access(auth, project_id)
         
         vdb = VDBExplorer()
         result = vdb.search_by_id(project_id, collection, vector_id)
@@ -1314,7 +1537,11 @@ def build_admin_router() -> APIRouter:
         auth: AuthContext = Depends(get_admin_user)
     ):
         """Get vector rows from a specific shard."""
+        auth.require_permission("read:collections")
+
         from scripts.db_explorer import VDBExplorer
+
+        _ensure_explorer_project_access(auth, project_id)
         
         vdb = VDBExplorer()
         
@@ -1361,5 +1588,140 @@ def build_admin_router() -> APIRouter:
         except Exception as e:
             logger.error(f"Error fetching rows: {e}")
             return {"success": False, "error": str(e), "rows": []}
+    
+    # ========================================================================
+    # User Self-Service API Key Management
+    # ========================================================================
+    
+    @router.get("/user/keys", response_class=HTMLResponse)
+    async def user_keys_page(
+        request: Request,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """User's own API keys page."""
+        # Get user's API keys
+        api_keys = _key_storage.list_user_api_keys(auth.user_id)
+        
+        return templates.TemplateResponse("admin/user_keys.html", {
+            "request": request,
+            "auth": auth,
+            "api_keys": api_keys,
+        })
+    
+    @router.get("/user/keys/new", response_class=HTMLResponse)
+    async def user_new_key_form(
+        request: Request,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Show form for user to create their own API key."""
+        return templates.TemplateResponse("admin/user_key_form.html", {
+            "request": request,
+            "auth": auth,
+        })
+    
+    @router.post("/user/keys", response_class=HTMLResponse)
+    async def user_create_key(
+        request: Request,
+        auth: AuthContext = Depends(get_admin_user),
+        label: str = Form(...),
+        expires_days: str = Form(""),
+    ):
+        """Create a new API key for the authenticated user."""
+        # Generate key
+        plaintext_key = api_key_manager.generate_key(auth.role)
+        key_hash = api_key_manager.hash_key(plaintext_key)
+        
+        # Calculate expiration
+        expires_at = None
+        expires_days_int = None
+        if expires_days and expires_days.strip():
+            try:
+                expires_days_int = int(expires_days)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid expiration days")
+        
+        if expires_days_int:
+            expires_at = datetime.utcnow() + timedelta(days=expires_days_int)
+        
+        # Store key
+        api_key = _key_storage.create_api_key(
+            user_id=auth.user_id,
+            key_id=plaintext_key,
+            key_hash=key_hash,
+            label=label,
+            expires_at=expires_at,
+        )
+        
+        _audit_storage.create_log(
+            action="api_key_created",
+            user_id=auth.user_id,
+            status="success",
+            details={
+                "key_id": api_key.id,
+                "label": label,
+                "self_created": True,
+            },
+        )
+        
+        # Return key details with plaintext key (only shown once!)
+        is_htmx = request.headers.get("HX-Request") == "true"
+        template_name = "admin/user_key_created.html" if is_htmx else "admin/user_key_created_standalone.html"
+        return templates.TemplateResponse(template_name, {
+            "request": request,
+            "auth": auth,
+            "api_key": api_key,
+            "plaintext_key": plaintext_key,
+            "standalone": not is_htmx,
+        })
+    
+    @router.post("/user/keys/{key_id}/revoke")
+    async def user_revoke_key(
+        key_id: int,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Revoke a user's own API key."""
+        api_key = _key_storage.get_api_key_by_id(key_id)
+        if not api_key:
+            raise HTTPException(status_code=404, detail="API key not found")
+        
+        # Ensure user owns this key
+        if api_key.user_id != auth.user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to revoke this key")
+        
+        _key_storage.revoke_api_key(key_id)
+        
+        _audit_storage.create_log(
+            action="api_key_revoked",
+            user_id=auth.user_id,
+            status="success",
+            details={"key_id": key_id, "label": api_key.label, "self_revoked": True},
+        )
+        
+        return {"status": "success", "message": "API key revoked"}
+    
+    @router.delete("/user/keys/{key_id}")
+    async def user_delete_key(
+        key_id: int,
+        auth: AuthContext = Depends(get_admin_user),
+    ):
+        """Delete a user's own API key."""
+        api_key = _key_storage.get_api_key_by_id(key_id)
+        if not api_key:
+            raise HTTPException(status_code=404, detail="API key not found")
+        
+        # Ensure user owns this key
+        if api_key.user_id != auth.user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this key")
+        
+        _key_storage.delete_api_key(key_id)
+        
+        _audit_storage.create_log(
+            action="api_key_deleted",
+            user_id=auth.user_id,
+            status="success",
+            details={"key_id": key_id, "label": api_key.label, "self_deleted": True},
+        )
+        
+        return {"status": "success", "message": "API key deleted"}
     
     return router

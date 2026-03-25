@@ -88,6 +88,51 @@ class Role(str, Enum):
 
 
 # ============================================================================
+# Password Management
+# ============================================================================
+
+class PasswordManager:
+    """Handles user password hashing and verification."""
+    
+    def __init__(self):
+        """Initialize with Argon2 hasher."""
+        self.hasher = PasswordHasher(
+            time_cost=ARGON2_TIME_COST,
+            memory_cost=ARGON2_MEMORY_COST,
+            parallelism=ARGON2_PARALLELISM,
+        )
+    
+    def hash_password(self, password: str) -> str:
+        """Hash a password using Argon2.
+        
+        Args:
+            password: Plaintext password
+            
+        Returns:
+            Argon2 hash string
+        """
+        return self.hasher.hash(password)
+    
+    def verify_password(self, password: str, password_hash: str) -> bool:
+        """Verify a password against its hash.
+        
+        Uses constant-time comparison to prevent timing attacks.
+        
+        Args:
+            password: Plaintext password to verify
+            password_hash: Stored hash to compare against
+            
+        Returns:
+            True if password matches hash, False otherwise
+        """
+        try:
+            self.hasher.verify(password_hash, password)
+            return True
+        except (VerifyMismatchError, InvalidHashError):
+            return False
+
+
+# ============================================================================
 # API Key Management
 # ============================================================================
 
@@ -344,5 +389,6 @@ def mask_api_key(api_key: str, show_chars: int = 4) -> str:
 # Global Instance
 # ============================================================================
 
-# Singleton instance for convenience
+# Singleton instances for convenience
+password_manager = PasswordManager()
 api_key_manager = APIKeyManager()
