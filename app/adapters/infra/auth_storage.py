@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     CheckConstraint,
     Index,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
@@ -41,6 +42,7 @@ class User(Base):
         index=True,
     )
     email = Column(String(255), nullable=True)
+    password_hash = Column(Text, nullable=True)  # Argon2 hash, optional (some users may not need login)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     active = Column(Boolean, default=True, nullable=False, index=True)
@@ -335,10 +337,44 @@ class AuthDatabase:
         )
         
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        
+        # Run migrations automatically on initialization
+        self._migrate_add_password_hash()
 
     def create_tables(self):
         """Create all tables if they don't exist."""
         Base.metadata.create_all(bind=self.engine)
+        self._migrate_add_password_hash()
+
+    def _migrate_add_password_hash(self):
+        """Migrate: Add password_hash column to users table if it doesn't exist.
+        
+        This handles the upgrade from versions without per-user passwords.
+        """
+        try:
+            with self.engine.connect() as conn:
+                # Check if column already exists using PRAGMA
+                result = conn.execute(
+                    text("PRAGMA table_info(users)")
+                ).fetchall()
+                
+                column_names = [row[1] for row in result]
+                
+                if 'password_hash' not in column_names:
+                    # Add the column
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN password_hash TEXT")
+                    )
+                    conn.commit()
+                    import logging
+                    logging.getLogger(__name__).info(
+                        "Migration: Added password_hash column to users table"
+                    )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(
+                f"Migration note: {e} (may be harmless if table doesn't exist yet)"
+            )
 
     def get_session(self) -> Session:
         """Get a database session.
@@ -452,6 +488,7 @@ class UserStorage:
     def update_user(
         self,
         user_id: int,
+        username: Optional[str] = None,
         email: Optional[str] = None,
         role: Optional[str] = None,
         active: Optional[bool] = None,
@@ -474,6 +511,8 @@ class UserStorage:
             if not user:
                 return None
             
+            if username is not None:
+                user.username = username
             if email is not None:
                 user.email = email
             if role is not None:
@@ -483,6 +522,46 @@ class UserStorage:
             if metadata is not None:
                 user.meta = metadata
             
+            user.updated_at = datetime.utcnow()
+            session.commit()
+            session.refresh(user)
+            return user
+
+    def activate_user(self, user_id: int) -> bool:
+        """Activate a user.
+
+        Args:
+            user_id: User ID to activate
+
+        Returns:
+            True if activated, False if not found
+        """
+        with self.db.get_session() as session:
+            user = session.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False
+
+            user.active = True
+            user.updated_at = datetime.utcnow()
+            session.commit()
+            return True
+
+    def set_password(self, user_id: int, password_hash: str) -> Optional[User]:
+        """Set user password hash.
+
+        Args:
+            user_id: User ID to update
+            password_hash: Hashed password from PasswordManager.hash_password()
+
+        Returns:
+            Updated User instance or None if not found
+        """
+        with self.db.get_session() as session:
+            user = session.query(User).filter(User.id == user_id).first()
+            if not user:
+                return None
+
+            user.password_hash = password_hash
             user.updated_at = datetime.utcnow()
             session.commit()
             session.refresh(user)
